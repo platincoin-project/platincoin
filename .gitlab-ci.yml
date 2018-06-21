@@ -178,7 +178,7 @@ job-ubuntu-test:
       - qa/cache/*/regtest/debug.log
   allow_failure: true
 
-job-debian-staging-deploy:
+job-staging-deploy:
   stage: deploy
   script:
     - mkdir -p /var/www/html/packages/staging/$CI_PROJECT_NAME
@@ -189,11 +189,17 @@ job-debian-staging-deploy:
   except:
     - tags
 
-job-debian-release-deploy:
+job-release-deploy:
   stage: deploy
   script:
     - mkdir -p /var/www/html/packages/releases/$CI_PROJECT_NAME
-    - zip -P $ZIP_PASSWORD -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-debian-x64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/debian/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-ubuntu-x64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/ubuntu/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-macos-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/macos/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-win32-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/win32/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-win64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/win64/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-arm32-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/arm32/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-arm64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/arm64/*
   tags:
     - debian
   only:

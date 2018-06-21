@@ -19,7 +19,7 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 
 CONFIG += no_include_pwd
 
-CONFIG(release, debug|release): DEFINES += NDEBUG
+#CONFIG(release, debug|release): DEFINES += NDEBUG
 
 # UNCOMMENT THIS SECTION TO BUILD ON WINDOWS
 # Change paths if needed, these use the foocoin/deps.git repository locations
@@ -308,12 +308,12 @@ SOURCES += \
 genleveldb.target = $$PWD/src/leveldb/libleveldb.a
 genleveldb.depends = FORCE
 
-unix {
-    PRE_TARGETDEPS += $$PWD/src/leveldb/libleveldb.a
-    QMAKE_EXTRA_TARGETS += genleveldb
-    # Gross ugly hack that depends on qmake internals, unfortunately there is no other way to do it.
-    QMAKE_CLEAN += $$PWD/src/leveldb/libleveldb.a; cd $$PWD/src/leveldb ; $(MAKE) clean
-}
+#unix {
+#    PRE_TARGETDEPS += $$PWD/src/leveldb/libleveldb.a
+#    QMAKE_EXTRA_TARGETS += genleveldb
+#    # Gross ugly hack that depends on qmake internals, unfortunately there is no other way to do it.
+#    QMAKE_CLEAN += $$PWD/src/leveldb/libleveldb.a; cd $$PWD/src/leveldb ; $(MAKE) clean
+#}
 
 # regenerate src/build.h
 #!windows|contains(USE_BUILD_INFO, 1) {
@@ -514,7 +514,8 @@ HEADERS += \
     src/torcontrol.h \
     src/qt/bantablemodel.h \
     src/rpc/rpcregister.h \
-    src/qt/paymentrequest.pb.h
+    src/qt/paymentrequest.pb.h \
+    src/chainparams-checkpoints.h
 
 #ENABLE_ZMQ
 #    src/zmq/zmqabstractnotifier.h \
@@ -713,4 +714,5 @@ contains(RELEASE, 1) {
 system($$QMAKE_LRELEASE -silent $$_PRO_FILE_)
 
 DISTFILES += \
-    src/qt/paymentrequest.proto
+    src/qt/paymentrequest.proto \
+    src/Makefile.am

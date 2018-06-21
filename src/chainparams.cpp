@@ -12,6 +12,7 @@
 #include "utilstrencodings.h"
 #include "base58.h"
 #include "chainparamsseeds.h"
+#include "chainparams-checkpoints.h"
 
 #include <assert.h>
 #include <memory>
@@ -153,12 +154,7 @@ public:
         fMineBlocksOnDemand             = false;
         consensus.fSkipProofOfWorkCheck = false;
 
-        checkpointData = (CCheckpointData) {
-            boost::assign::map_list_of
-            (  330, uint256S("0xcbbc7c2b5b94c19bb3d56325ea5c98920fba163dc2fa5e80857ff46d39aa3a48"))
-            (16208, uint256S("0xdd3ecab48df95bbd3a3c2d9e9d3487d2a0e8274e2e32e9229725fb970a6e412c"))
-            (40320, uint256S("0xfe057ca6a22a2f4bb77d8848b5d3dcc346c956d8a76da6dee7ef45bdc96b5306"))
-        };
+        checkpoints = MapCheckpoints(checkpointsMainnet, checkpointsMainnet + ARRAYLEN(checkpointsMainnet));
 
         chainTxData = ChainTxData{
             // Data as of block b44bc5ae41d1be67227ba9ad875d7268aa86c965b1d64b47c35be6e8d5c352f4 (height 1155626).
@@ -274,10 +270,7 @@ public:
         fMineBlocksOnDemand             = false;
         consensus.fSkipProofOfWorkCheck = false;
 
-//        checkpointData = (CCheckpointData) {
-//            boost::assign::map_list_of
-//            ( 2056, uint256S("0x17748a31ba97afdc9a4f86837a39d287e3e7c7290a08a1d816c5969c78a83289")),
-//        };
+        checkpoints = MapCheckpoints(checkpointsTestnet, checkpointsTestnet + ARRAYLEN(checkpointsTestnet));
 
         chainTxData = ChainTxData{
             1516631301,
@@ -368,28 +361,25 @@ public:
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
 
+        base58Prefixes[PUBKEY_ADDRESS] = boost::assign::list_of(0x02)(0xD0)(0xA4).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[SCRIPT_ADDRESS] = boost::assign::list_of(0x02)(0xD0)(0xA5).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[SECRET_KEY]     = boost::assign::list_of(0x02)(0xD0)(0xEF).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
+
         fMiningRequiresPeers            = false;
         fDefaultConsistencyChecks       = true;
         fRequireStandard                = false;
         fMineBlocksOnDemand             = true;
         consensus.fSkipProofOfWorkCheck = true;
 
-        checkpointData = (CCheckpointData){
-            boost::assign::map_list_of
-            ( 0, uint256S("0x530827f38f93b43ed12af0b3ad25a288dc02ed74d6d7857862df51fc56c416f9"))
-        };
+        checkpoints = MapCheckpoints(checkpointsTestnet, checkpointsTestnet + ARRAYLEN(checkpointsTestnet));
 
         chainTxData = ChainTxData{
             0,
             0,
             0
         };
-
-        base58Prefixes[PUBKEY_ADDRESS] = boost::assign::list_of(0x02)(0xD0)(0xA4).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[SCRIPT_ADDRESS] = boost::assign::list_of(0x02)(0xD0)(0xA5).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[SECRET_KEY]     = boost::assign::list_of(0x02)(0xD0)(0xEF).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
     }
 
     void init()

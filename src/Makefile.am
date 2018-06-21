@@ -83,6 +83,7 @@ BITCOIN_CORE_H = \
   blockencodings.h \
   chain.h \
   chainparams.h \
+  chainparams-checkpoints.h \
   chainparamsbase.h \
   chainparamsseeds.h \
   checkpoints.h \

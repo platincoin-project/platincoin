@@ -10,7 +10,7 @@
 #include <map>
 
 class CBlockIndex;
-struct CCheckpointData;
+typedef std::map<int, uint256> MapCheckpoints;
 
 /**
  * Block-chain checkpoints are compiled-in sanity checks.
@@ -20,7 +20,7 @@ namespace Checkpoints
 {
 
 //! Returns last CBlockIndex* in mapBlockIndex that is a checkpoint
-CBlockIndex* GetLastCheckpoint(const CCheckpointData& data);
+CBlockIndex* GetLastCheckpoint(const MapCheckpoints & checkpoints);
 
 } //namespace Checkpoints
 
