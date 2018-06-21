@@ -5,7 +5,7 @@ Platincoin Core integration/staging tree
 License
 -------
 
-Litecoin Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
+Platincoin Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see https://opensource.org/licenses/MIT.
 
 Development Process
@@ -13,7 +13,7 @@ Development Process
 
 The `master` branch is regularly built and tested, but is not guaranteed to be
 completely stable. [Tags](https://github.com/platincoin-project/platincoin/tags) are created
-regularly to indicate new official, stable release versions of Litecoin Core.
+regularly to indicate new official, stable release versions of Platincoin Core.
 
 The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
 

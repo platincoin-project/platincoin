@@ -76,10 +76,11 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         strNetworkID = "main";
-        consensus.BIP34Height                    = 710000;
-        consensus.BIP34Hash                      = uint256S("fa09d204a83a768ed5a7c8d441fa62f2043abf420cff1226c7b4329aeb9d51cf");
-        consensus.BIP65Height                    = 918684; // bab3041e8977e0dc3eeff63fe707b92bde1dd449d8efafb248c27c8264cc311a
-        consensus.BIP66Height                    = 811879; // 7aceee012833fa8952f8835d8b1b3ae233cd6ab08fdb27a771d2bd7bdc491894
+
+        consensus.BIP34Height                    = 1;
+        consensus.BIP34Hash                      = uint256S("da1679b38daa52ffb878f3b3d7a20726a9de21ed937f71410b711278ddb3fa7a");
+        consensus.BIP65Height                    = 1;
+        consensus.BIP66Height                    = 1;
         consensus.powLimit                       = uint256S("007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan             = 2.1 * 24 * 60 * 60; // 3.5 days
         consensus.nPowTargetSpacing              = 1.5 * 60;
@@ -155,6 +156,7 @@ public:
         checkpointData = (CCheckpointData) {
             boost::assign::map_list_of
             (  330, uint256S("0xcbbc7c2b5b94c19bb3d56325ea5c98920fba163dc2fa5e80857ff46d39aa3a48"))
+            (16208, uint256S("0xdd3ecab48df95bbd3a3c2d9e9d3487d2a0e8274e2e32e9229725fb970a6e412c"))
         };
 
         chainTxData = ChainTxData{
@@ -199,10 +201,10 @@ class CTestNetParams : public CChainParams {
 public:
     CTestNetParams() {
         strNetworkID = "test";
-        consensus.BIP34Height                    = 76;
-        consensus.BIP34Hash                      = uint256S("8075c771ed8b495ffd943980a95f702ab34fce3c8c54e379548bda33cc8c0573");
-        consensus.BIP65Height                    = 76; // 8075c771ed8b495ffd943980a95f702ab34fce3c8c54e379548bda33cc8c0573
-        consensus.BIP66Height                    = 76; // 8075c771ed8b495ffd943980a95f702ab34fce3c8c54e379548bda33cc8c0573
+        consensus.BIP34Height                    = 1;
+        consensus.BIP34Hash                      = uint256S("0000000000000000000000000000000000000000000000000000000000000000");
+        consensus.BIP65Height                    = 1;
+        consensus.BIP66Height                    = 1;
         consensus.powLimit                       = uint256S("007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan             = 2.1 * 24 * 60 * 60;
         consensus.nPowTargetSpacing              = 1.5 * 60;

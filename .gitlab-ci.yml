@@ -21,6 +21,24 @@ job-debian-build:
     paths:
       - build/usr/local/bin/
 
+job-ubuntu-build:
+  stage: build
+  script:
+    - rm -rf configure
+    - ./autogen.sh
+    - ./configure --enable-static --disable-shared --with-incompatible-bdb --enable-glibc-back-compat
+    - make -j 1
+    - mkdir build
+    - make install DESTDIR=$PWD/build
+  cache:
+    key: "ubuntu-build-$CI_PIPELINE_ID"
+    untracked: true
+  tags:
+    - ubuntu
+  artifacts:
+    paths:
+      - build/usr/local/bin/
+
 job-win64-build:
   stage: build
   script:
@@ -62,6 +80,7 @@ job-win32-build:
 job-macos-build:
   stage: build
   script:
+    - rm -rf $HOME/Cache/x86_64-apple-darwin11/qt
     - rm -rf configure
     - cd depends
     - make HOST=x86_64-apple-darwin11 SOURCES_PATH=$HOME/Downloads BASE_CACHE=$HOME/Cache SDK_PATH=$HOME/Import/MacOSX-SDKs -j 2
@@ -130,6 +149,27 @@ job-debian-test:
     untracked: true
   tags:
     - debian
+  artifacts:
+    when: on_failure
+    paths:
+      - qa/cache/*/regtest/debug.log
+  allow_failure: true
+
+job-ubuntu-test:
+  stage: test
+  script:
+    - make check VERBOSE=1
+    - timeout -k 10 900 qa/pull-tester/rpc-tests.py -extended
+    - ps aux | grep $PWD | grep server | awk '{print $2}' | xargs -l -r kill -9
+  after_script:
+    - ps aux | grep $PWD | grep server | awk '{print $2}' | xargs -l -r kill -9
+  dependencies:
+    - job-ubuntu-build
+  cache:
+    key: "ubuntu-build-$CI_PIPELINE_ID"
+    untracked: true
+  tags:
+    - ubuntu
   artifacts:
     when: on_failure
     paths:

@@ -2015,14 +2015,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CAmount foundSubsidy = 0;
     CAmount foundAward   = 0;
 
-    if (block.vtx[0]->vout[0].nValue > blockSubsidy)
-    {
-        return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (subsidy=%d vs limit=%d)",
-                               block.vtx[0]->vout[0].nValue, blockSubsidy),
-                               REJECT_INVALID, "bad-cb-amount");
-    }
-
     CTxDestination awardTxDest = CBitcoinAddress(Params().miningAddress()).Get();
 
     for (const CTxOut & out : block.vtx[0]->vout)
@@ -2041,17 +2033,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         CTxDestination txDest;
-        if (!ExtractDestination(out.scriptPubKey, txDest))
-        {
-            return state.DoS(100,
-                             error("ConnectBlock(): invalid destination in coinbase transaction"),
-                                   REJECT_INVALID, "bad-cb-amount");
-        }
-        if (awardTxDest != txDest)
-        {
-            foundSubsidy += out.nValue;
-        }
-        else
+        if (ExtractDestination(out.scriptPubKey, txDest) && awardTxDest == txDest)
         {
             if (out.nValue > Params().awardGranularity())
             {
@@ -2062,12 +2044,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             foundAward += out.nValue;
         }
+        else
+        {
+            foundSubsidy += out.nValue;
+        }
     }
 
     if (blockSubsidy < foundSubsidy)
     {
         return state.DoS(100,
-                         error("ConnectBlock(): invalid PLC award value in coinbase (actual=%d vs limit=%d)",
+                         error("ConnectBlock(): invalid subsidy value in coinbase (actual=%d vs limit=%d)",
                                foundSubsidy, blockSubsidy),
                                REJECT_INVALID, "bad-cb-amount");
     }

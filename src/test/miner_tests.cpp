@@ -33,43 +33,42 @@ struct {
     unsigned char extranonce;
     unsigned int nonce;
 } blockinfo[] = {
-    {81, 0x00000493}, {82, 0x00000339}, {83, 0x000002b2}, {84, 0x000000e9},
-    {85, 0x0000019a}, {86, 0x0000009a}, {87, 0x000000c9}, {88, 0x00000024},
-    {89, 0x00000280}, {90, 0x00000584}, {91, 0x000001ba}, {92, 0x00000c64},
-    {93, 0x00000ed7}, {94, 0x00001141}, {95, 0x0000020d}, {96, 0x00000609},
+    {81, 0x000006b9}, {82, 0x0000046a}, {83, 0x00000961}, {84, 0x0000019e},
+    {85, 0x000006d5}, {86, 0x000002cf}, {87, 0x00000763}, {88, 0x0000056f},
+    {89, 0x000004bd}, {90, 0x00000a6b}, {91, 0x000002a3}, {92, 0x0000118e},
+    {93, 0x000019a1}, {94, 0x000012f4}, {95, 0x00000c04}, {96, 0x00000dc3},
 
-    {1, 0x000000bd}, {1, 0x0000020f}, {1, 0x00000448}, {1, 0x00000b0c},
-    {1, 0x0000038d}, {1, 0x00000101}, {1, 0x0000023a}, {1, 0x00000185},
-    {1, 0x000002ba}, {1, 0x00000915}, {1, 0x000002ec}, {1, 0x0000040a},
-    {1, 0x0000028e}, {1, 0x00000214}, {1, 0x000000f5}, {1, 0x00000210},
+    {1, 0x00000355}, {1, 0x0000048d}, {1, 0x00000f43}, {1, 0x00000d65},
+    {1, 0x000008d0}, {1, 0x000002e8}, {1, 0x00000505}, {1, 0x0000047d},
+    {1, 0x00000444}, {1, 0x00001178}, {1, 0x0000071b}, {1, 0x00000b02},
+    {1, 0x00000833}, {1, 0x000002ae}, {1, 0x0000092b}, {1, 0x00000a05},
 
-    {1, 0x00000187}, {1, 0x00000618}, {1, 0x00000304}, {1, 0x000003e3},
-    {1, 0x00000511}, {1, 0x00000283}, {1, 0x0000046d}, {1, 0x00000096}, 
-    {1, 0x000005ee}, {1, 0x00000250}, {1, 0x00000255}, {1, 0x0000065b},
-    {1, 0x0000022f}, {1, 0x000000f9}, {1, 0x000001e8}, {1, 0x000003fe},
+    {1, 0x0000088e}, {1, 0x00000cbe}, {1, 0x0000062e}, {1, 0x000009b9},
+    {1, 0x00000863}, {1, 0x00000586}, {1, 0x00000a4f}, {1, 0x00000260},
+    {1, 0x000006a4}, {1, 0x00000c3c}, {1, 0x000005a5}, {1, 0x000010be},
+    {1, 0x0000048f}, {1, 0x000006ce}, {1, 0x00000750}, {1, 0x0000095a},
 
-    {1, 0x00000149}, {1, 0x0000013c}, {1, 0x0000020b}, {1, 0x000005ef},
-    {1, 0x0000077f}, {1, 0x000008fc}, {1, 0x0000045c}, {1, 0x00000467},
-    {1, 0x00000546}, {1, 0x0000096d}, {1, 0x00000281}, {1, 0x000001e5},
-    {1, 0x00000a91}, {1, 0x000000ce}, {1, 0x00000345}, {1, 0x00000677},
+    {1, 0x0000038b}, {1, 0x000001a9}, {1, 0x0000025c}, {1, 0x00000ed8},
+    {1, 0x00000a30}, {1, 0x00000c1d}, {1, 0x00000b36}, {1, 0x0000097f},
+    {1, 0x00000d52}, {1, 0x00001033}, {1, 0x000005c8}, {1, 0x00000356},
+    {1, 0x00000b5d}, {1, 0x0000014d}, {1, 0x00000432}, {1, 0x000006d2},
 
-    {1, 0x000000e3}, {1, 0x000004aa}, {1, 0x000008bd}, {1, 0x000000dc},
-    {1, 0x00000234}, {1, 0x00000339}, {1, 0x000000e8}, {1, 0x00000268},
-    {1, 0x00000339}, {1, 0x00000b5d}, {1, 0x000002b7}, {1, 0x000001d9},
-    {1, 0x000004c9}, {1, 0x0000025f}, {1, 0x00000300}, {1, 0x0000029f},
+    {1, 0x00000328}, {1, 0x00000766}, {1, 0x00000c28}, {1, 0x000008d9},
+    {1, 0x00000854}, {1, 0x000008ce}, {1, 0x00000b02}, {1, 0x0000093f},
+    {1, 0x000007b7}, {1, 0x00001011}, {1, 0x0000065c}, {1, 0x0000036a},
+    {1, 0x00000826}, {1, 0x000008dc}, {1, 0x00000b01}, {1, 0x00000589},
 
-    {1, 0x000003b3}, {1, 0x000001b3}, {1, 0x000000aa}, {1, 0x000002b6},
-    {1, 0x0000026a}, {1, 0x0000017c}, {1, 0x000003dc}, {1, 0x00000371},
-    {1, 0x000005bb}, {1, 0x0000011c}, {1, 0x000000c5}, {1, 0x0000025e},
-    {1, 0x0000029c}, {1, 0x00000140}, {1, 0x0000039c}, {1, 0x00000516},
+    {1, 0x0000084d}, {1, 0x0000095f}, {1, 0x000006aa}, {1, 0x000008a0},
+    {1, 0x00000797}, {1, 0x0000067d}, {1, 0x00000661}, {1, 0x00000733},
+    {1, 0x000007f6}, {1, 0x00000411}, {1, 0x00000492}, {1, 0x00000348},
+    {1, 0x00000566}, {1, 0x000006d5}, {1, 0x00000906}, {1, 0x00000591},
 
-    {1, 0x00000308}, {1, 0x00000569}, {1, 0x000000c9}, {1, 0x00000246},
+    {1, 0x00000757}, {1, 0x00000a6d}, {1, 0x00000655}, {1, 0x000003e2},
 
-    {1, 0x0000015d}, {1, 0x00000369}, {1, 0x000001bf}, {1, 0x00000558},
-    {1, 0x000000d9}, {1, 0x00000034}, {1, 0x00000369}, {1, 0x00000184},
-    {1, 0x00000184}, {1, 0x00000557}, {1, 0x000001ea}, {1, 0x000001bd},
-    {1, 0x0000023a}, {1, 0x000003a7}, {1, 0x00000116}, {1, 0x000000b3},
-
+    {1, 0x000004a0}, {1, 0x000006c2}, {1, 0x00000446}, {1, 0x000008f3},
+    {1, 0x000006d9}, {1, 0x00000892}, {1, 0x00000492}, {1, 0x000004e8},
+    {1, 0x00000477}, {1, 0x000007d2}, {1, 0x0000038e}, {1, 0x00000445},
+    {1, 0x00000afd}, {1, 0x00000836}, {1, 0x0000037f}, {1, 0x00000327}
 };
 
 CBlockIndex CreateBlockIndex(int nHeight)
@@ -221,13 +220,11 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
 
         CBlock *pblock = &pblocktemplate->block; // pointer for convenience
-        pblock->nVersion = 1;
         pblock->nTime = chainActive.Tip()->GetMedianTimePast()+1;
         CMutableTransaction txCoinbase(*pblock->vtx[0]);
-        txCoinbase.nVersion = 1;
         txCoinbase.vin[0].scriptSig = CScript();
         txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
-        txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
+        txCoinbase.vin[0].scriptSig.push_back(chainActive.Height()+1);
         if (txCoinbase.vout.back().nValue == 0)
         {
             // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
@@ -242,10 +239,11 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 
         pblock->nNonce = blockinfo[i].nonce;
-        while (!CheckProofOfWork(pblock->GetPoWHash(), pblock->nBits, chainparams.GetConsensus()))
-        {
-            ++pblock->nNonce;
-        }
+        // while (!CheckProofOfWork(pblock->GetPoWHash(), pblock->nBits, chainparams.GetConsensus()))
+        // {
+        //     ++pblock->nNonce;
+        // }
+        // std::cout << '{' << (int)blockinfo[i].extranonce << ", 0x" << std::hex << std::setw(8) << std::setfill('0') << pblock->nNonce << "}," << std::endl;
 
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, NULL));
