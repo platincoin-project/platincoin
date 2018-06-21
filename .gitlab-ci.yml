@@ -10,8 +10,8 @@ job-debian-build:
     - ./autogen.sh
     - ./configure --enable-static --disable-shared --with-incompatible-bdb
     - make -j 2
-    - mkdir build
-    - make install DESTDIR=$PWD/build
+    - mkdir -p build/debian
+    - make install DESTDIR=$PWD/build/debian
   cache:
     key: "debian-build-$CI_PIPELINE_ID"
     untracked: true
@@ -19,7 +19,7 @@ job-debian-build:
     - debian
   artifacts:
     paths:
-      - build/usr/local/bin/
+      - build/debian/usr/local/bin/
 
 job-ubuntu-build:
   stage: build
@@ -28,8 +28,8 @@ job-ubuntu-build:
     - ./autogen.sh
     - ./configure --enable-static --disable-shared --with-incompatible-bdb --enable-glibc-back-compat
     - make -j 1
-    - mkdir build
-    - make install DESTDIR=$PWD/build
+    - mkdir -p build/ubuntu
+    - make install DESTDIR=$PWD/build/ubuntu
   cache:
     key: "ubuntu-build-$CI_PIPELINE_ID"
     untracked: true
@@ -37,7 +37,7 @@ job-ubuntu-build:
     - ubuntu
   artifacts:
     paths:
-      - build/usr/local/bin/
+      - build/ubuntu/usr/local/bin/
 
 job-win64-build:
   stage: build
@@ -49,13 +49,13 @@ job-win64-build:
     - ./autogen.sh
     - CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --disable-tests --prefix=/ --enable-static --disable-shared
     - make -j 2
-    - mkdir build
-    - make install DESTDIR=$PWD/build
+    - mkdir -p build/win64
+    - make install DESTDIR=$PWD/build/win64
   tags:
     - windows-w64
   artifacts:
     paths:
-      - build/bin/
+      - build/win64/bin/
   allow_failure: true
 
 job-win32-build:
@@ -68,13 +68,13 @@ job-win32-build:
     - ./autogen.sh
     - CONFIG_SITE=$PWD/depends/i686-w64-mingw32/share/config.site ./configure  --disable-tests --prefix=/ --enable-static --disable-shared
     - make -j 2
-    - mkdir build
-    - make install DESTDIR=$PWD/build
+    - mkdir -p build/win32
+    - make install DESTDIR=$PWD/build/win32
   tags:
     - windows-w32
   artifacts:
     paths:
-      - build/bin/
+      - build/win32/bin/
   allow_failure: true
 
 job-macos-build:
@@ -89,11 +89,13 @@ job-macos-build:
     - CONFIG_SITE=$PWD/depends/x86_64-apple-darwin11/share/config.site ./configure --disable-tests --prefix=/ --enable-static --disable-shared
     - make -j 2
     - make appbundle
+    - mkdir -p build/macos
+    - mv Platincoin-Qt.app build/macos/
   tags:
     - macos
   artifacts:
     paths:
-      - Platincoin-Qt.app
+      - build/macos/
   allow_failure: true
 
 job-linux-arm32-build:
@@ -106,13 +108,13 @@ job-linux-arm32-build:
     - ./autogen.sh
     - CONFIG_SITE=$PWD/depends/arm-linux-gnueabihf/share/config.site ./configure  --disable-tests --prefix=/ --enable-static --disable-shared --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++
     - make -j 2
-    - mkdir build
-    - make install DESTDIR=$PWD/build
+    - mkdir -p build/arm32
+    - make install DESTDIR=$PWD/build/arm32
   tags:
     - linux-arm32
   artifacts:
     paths:
-      - build/
+      - build/arm32/
   allow_failure: true
 
 job-linux-arm64-build:
@@ -125,13 +127,13 @@ job-linux-arm64-build:
     - ./autogen.sh
     - CONFIG_SITE=$PWD/depends/aarch64-linux-gnu/share/config.site ./configure --enable-static --disable-shared --disable-tests --prefix=/ --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++
     - make -j 2
-    - mkdir build
-    - make install DESTDIR=$PWD/build
+    - mkdir -p build/arm64
+    - make install DESTDIR=$PWD/build/arm64
   tags:
     - linux-arm64
   artifacts:
     paths:
-      - build/
+      - build/arm64/
   allow_failure: true
 
 job-debian-test:
@@ -180,8 +182,8 @@ job-debian-staging-deploy:
   stage: deploy
   script:
     - mkdir -p /var/www/html/packages/staging/$CI_PROJECT_NAME
-    - zip -P $ZIP_PASSWORD -r /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_NAME-$CI_PIPELINE_ID.zip build/*
-    - ln -s -f /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_NAME-$CI_PIPELINE_ID.zip /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_NAME-latest.zip
+    - zip -P $ZIP_PASSWORD -r /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/*
+    - ln -s -f /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG-latest.zip
   tags:
     - debian
   except:
@@ -191,7 +193,7 @@ job-debian-release-deploy:
   stage: deploy
   script:
     - mkdir -p /var/www/html/packages/releases/$CI_PROJECT_NAME
-    - zip -P $ZIP_PASSWORD -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_NAME-$CI_PIPELINE_ID.zip build/*
+    - zip -P $ZIP_PASSWORD -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/*
   tags:
     - debian
   only:
