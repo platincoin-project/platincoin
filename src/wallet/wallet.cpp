@@ -2726,7 +2726,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
     if (GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS)) {
         // Lastly, ensure this tx will pass the mempool's chain limits
         LockPoints lp;
-        CTxMemPoolEntry entry(wtxNew.tx, 0, 0, 0, 0, 0, false, 0, lp);
+        CTxMemPoolEntry entry(wtxNew.tx, 0, 0, 0, 0, 0, 0, false, 0, lp);
         CTxMemPool::setEntries setAncestors;
         size_t nLimitAncestors = GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT);
         size_t nLimitAncestorSize = GetArg("-limitancestorsize", DEFAULT_ANCESTOR_SIZE_LIMIT)*1000;
@@ -3371,8 +3371,6 @@ void CWallet::UpdatedTransaction(const uint256 &hashTx)
 
 void CWallet::GetScriptForMining(boost::shared_ptr<CReserveScript> &script)
 {
-    boost::shared_ptr<CReserveKey> rKey(new CReserveKey(this));
-
     static auto getReservedKey = [](boost::shared_ptr<CReserveKey> & rkey) -> CPubKey
     {
         CPubKey tmpPubKey;
@@ -3380,10 +3378,18 @@ void CWallet::GetScriptForMining(boost::shared_ptr<CReserveScript> &script)
         return tmpPubKey;
     };
 
+    boost::shared_ptr<CReserveKey> rKey(new CReserveKey(this));
     static CPubKey pubkey = getReservedKey(rKey);
+
     if (!pubkey.IsValid())
     {
-        return;
+        // need second call getReservedKey because static
+        // variable may be initialized very early and contains invalid pubkey
+        pubkey = getReservedKey(rKey);
+        if (!pubkey.IsValid())
+        {
+            return;
+        }
     }
 
     script = rKey;

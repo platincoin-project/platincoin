@@ -116,6 +116,8 @@ BITCOIN_CORE_H = \
   netbase.h \
   netmessagemaker.h \
   noui.h \
+  plccertificate.h \
+  plcvalidator.h \
   policy/fees.h \
   policy/policy.h \
   policy/rbf.h \
@@ -163,7 +165,8 @@ BITCOIN_CORE_H = \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
-  zmq/zmqpublishnotifier.h
+  zmq/zmqpublishnotifier.h \
+  zmq/zmqrpc.h
 
 
 obj/build.h: FORCE
@@ -191,6 +194,8 @@ libbitcoin_server_a_SOURCES = \
   net.cpp \
   net_processing.cpp \
   noui.cpp \
+  plccertificate.cpp \
+  plcvalidator.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
   pow.cpp \
@@ -202,8 +207,10 @@ libbitcoin_server_a_SOURCES = \
   rpc/rpcrawtransaction.cpp \
   rpc/rpcserver.cpp \
   rpc/rpcdebug.cpp \
-  script/sigcache.cpp \
+  script/interpreter.cpp \
+  script/interpreter.h \
   script/ismine.cpp \
+  script/sigcache.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
@@ -220,7 +227,8 @@ libbitcoin_zmq_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_zmq_a_SOURCES = \
   zmq/zmqabstractnotifier.cpp \
   zmq/zmqnotificationinterface.cpp \
-  zmq/zmqpublishnotifier.cpp
+  zmq/zmqpublishnotifier.cpp \
+  zmq/zmqrpc.cpp
 endif
 
 
@@ -295,8 +303,6 @@ libbitcoin_consensus_a_SOURCES = \
   pubkey.cpp \
   pubkey.h \
   script/bitcoinconsensus.cpp \
-  script/interpreter.cpp \
-  script/interpreter.h \
   script/script.cpp \
   script/script.h \
   script/script_error.cpp \
@@ -424,13 +430,18 @@ endif
 
 platincoin_tx_LDADD = \
   $(LIBUNIVALUE) \
+  $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
+  $(LIBBITCOIN_WALLET) \
+  $(LIBBITCOIN_ZMQ) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
+  $(LIBLEVELDB) \
+  $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-platincoin_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+platincoin_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 #
 
 # bitcoinconsensus library #

@@ -930,6 +930,7 @@ UniValue gettxout(const JSONRPCRequest& request)
             "  },\n"
             "  \"version\" : n,            (numeric) The version\n"
             "  \"coinbase\" : true|false   (boolean) Coinbase or not\n"
+            "  \"storage\" : \"hex\"       (string) local UTXO storage for this txout\n"
             "}\n"
 
             "\nExamples:\n"
@@ -979,6 +980,10 @@ UniValue gettxout(const JSONRPCRequest& request)
     ret.push_back(Pair("scriptPubKey", o));
     ret.push_back(Pair("version", coins.nVersion));
     ret.push_back(Pair("coinbase", coins.fCoinBase));
+    if (!coins.m_voutStorage[n].empty())
+    {
+        ret.push_back(Pair("storage", HexStr(coins.m_voutStorage[n])));
+    }
 
     return ret;
 }

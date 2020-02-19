@@ -73,6 +73,16 @@ static CBlock CreateGenesisBlock(const char * pszTimestamp,
  * + Contains no strange transactions
  */
 
+CScript makeMoneyBoxScriptPubKey()
+{
+    CScript scr;
+    scr << OP_CHECKREWARD;
+    CScriptID id(scr);
+    CScript result;
+    result << OP_HASH160 << ToByteVector(id) << OP_EQUAL;
+    return result;
+}
+
 class CMainParams : public CChainParams {
 public:
     CMainParams() {
@@ -115,12 +125,8 @@ public:
         consensus.countOfInitialAwardBlocks  = 100;
         consensus.awardGranularity           = 10*COIN;
 
-        // fixed mining address
-        // TODO update
-        consensus.miningAddress = std::string("P4uXta1UHmvuQ3RZg7aeYSxvRmhQGNBtYKNs");
-
-        // reward depth, in blocks. approximately 30 days
-        consensus.rewardDepth = 4320;
+        consensus.moneyBoxAddress = makeMoneyBoxScriptPubKey();
+        consensus.moneyBoxAmount  = 10000*COIN;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -137,8 +143,8 @@ public:
 
         // Note that of those with the service bits flag, most only support a subset of possible options
         vSeeds.push_back(CDNSSeedData("bc00-a8.platincoin.info", "bc00-a8.platincoin.info"));
-        vSeeds.push_back(CDNSSeedData("bc01-a8.platincoin.info", "bc00-a8.platincoin.info"));
-        vSeeds.push_back(CDNSSeedData("bc02-a8.platincoin.info", "bc00-a8.platincoin.info"));
+        vSeeds.push_back(CDNSSeedData("bc01-a8.platincoin.info", "bc01-a8.platincoin.info"));
+        vSeeds.push_back(CDNSSeedData("bc02-a8.platincoin.info", "bc02-a8.platincoin.info"));
 
         base58Prefixes[PUBKEY_ADDRESS] = boost::assign::list_of(0x02)(0xD0)(0xA8).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[SCRIPT_ADDRESS] = boost::assign::list_of(0x02)(0xD0)(0xA9).convert_to_container<std::vector<unsigned char> >();
@@ -235,11 +241,8 @@ public:
         consensus.countOfInitialAwardBlocks  = 100;
         consensus.awardGranularity           = 10*COIN;
 
-        // fixed mining address
-        consensus.miningAddress = std::string("P4svYA536d6BYY9q7mUyDB2RLdBPEbNRTmrj");
-
-        // reward depth, in blocks. approximately 30 hours
-        consensus.rewardDepth = 180;
+        consensus.moneyBoxAddress = makeMoneyBoxScriptPubKey();
+        consensus.moneyBoxAmount  = 10000*COIN;
 
         pchMessageStart[0] = 0xfd;
         pchMessageStart[1] = 0xd2;
@@ -281,7 +284,7 @@ public:
 
     void init()
     {
-        const char * pszTimestamp = "01/Mar/2018 testnet";
+        const char * pszTimestamp = "09/Dec/2018 testnet";
 
         std::vector<CScript> scripts(10);
         scripts[0] << OP_RETURN << ParseHex("020cdefcaee3e1ee1d7dae3de8d5db4b0a807323f2931afcf02d13a942aa8af2d0");
@@ -295,11 +298,11 @@ public:
         scripts[8] << OP_RETURN << ParseHex("02177734e87e30491517e3f167aceb9fdff9398375414aaddc318795a7e26445a7");
         scripts[9] << OP_RETURN << ParseHex("0222c9c158806ab1e4bbf7b87fe01ad4ff7cada0fe7939984ef0741cd1b714c16d");
 
-        genesis = CreateGenesisBlock(pszTimestamp, scripts, 1519862400, 0x3b6, 0x1f7fffff, 1, 1 * COIN, consensus);
+        genesis = CreateGenesisBlock(pszTimestamp, scripts, 1544346000, 0xcf4, 0x1f7fffff, 1, 1 * COIN, consensus);
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("6c940048f723be718cf0977046424cd7baea90f009463d436489f439225f19a0"));
-        assert(genesis.hashMerkleRoot == uint256S("7579ad30ac4679e632683b3c4200817fad62bf4fd6983b653458913d34035fff"));
+        assert(consensus.hashGenesisBlock == uint256S("37a749bbaddeb18e1abd1a86c2087152f2b399a62c47d14fbd75cbc7b24c27af"));
+        assert(genesis.hashMerkleRoot == uint256S("316383fc5a0fdd9f2b6249500da5f3cc6a56716fa4dc87522e47188724ea4ac9"));
     }
 };
 
@@ -344,11 +347,8 @@ public:
         consensus.countOfInitialAwardBlocks  = 100;
         consensus.awardGranularity           = 10*COIN;
 
-        // fixed mining address
-        consensus.miningAddress = std::string("P4svYA536d6BYY9q7mUyDB2RLdBPEbNRTmrj");
-
-        // reward depth, in blocks. approximately 30 days
-        consensus.rewardDepth = 4320;
+        consensus.moneyBoxAddress = makeMoneyBoxScriptPubKey();
+        consensus.moneyBoxAmount  = 10000*COIN;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -384,7 +384,7 @@ public:
 
     void init()
     {
-        const char * pszTimestamp = "01/Mar/2018 regtest";
+        const char * pszTimestamp = "09/Dec/2018 regtest";
 
         std::vector<CScript> scripts(10);
         scripts[0] << OP_RETURN << ParseHex("020cdefcaee3e1ee1d7dae3de8d5db4b0a807323f2931afcf02d13a942aa8af2d0");
@@ -398,11 +398,11 @@ public:
         scripts[8] << OP_RETURN << ParseHex("02177734e87e30491517e3f167aceb9fdff9398375414aaddc318795a7e26445a7");
         scripts[9] << OP_RETURN << ParseHex("0222c9c158806ab1e4bbf7b87fe01ad4ff7cada0fe7939984ef0741cd1b714c16d");
 
-        genesis = CreateGenesisBlock(pszTimestamp, scripts, 1519862400, 0, 0x1f7fffff, 1, 1 * COIN, consensus);
+        genesis = CreateGenesisBlock(pszTimestamp, scripts, 1543006800, 0, 0x1f7fffff, 1, 1 * COIN, consensus);
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("7f2a21c8712757b2ff75b9b60d5b7491b6b94dc38f4b8b4cdc8067f79713a45b"));
-        assert(genesis.hashMerkleRoot == uint256S("323a9cb94e222b22620c31e72b314fe2f73ba349a7e7ba57d0a651d8f16eba39"));
+        assert(consensus.hashGenesisBlock == uint256S("e3c13311061cd69f5a9b06c941a3b7c8bf5a24509148d0f7083a809dcb55afd0"));
+        assert(genesis.hashMerkleRoot == uint256S("486c8bf8b988ef403894052a6ab14cd68ae0f39bc504ec60f1467067ef267f31"));
     }
 
     void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)

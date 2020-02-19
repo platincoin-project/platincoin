@@ -275,7 +275,9 @@ SOURCES += \
     src/torcontrol.cpp \
     src/qt/bantablemodel.cpp \
     src/qt/bitcoin.cpp \
-    src/rpc/rpcdebug.cpp
+    src/rpc/rpcdebug.cpp \
+    src/plccertificate.cpp \
+    src/plcvalidator.cpp
 
 #protobuf generated
 SOURCES += \
@@ -515,7 +517,9 @@ HEADERS += \
     src/qt/bantablemodel.h \
     src/rpc/rpcregister.h \
     src/qt/paymentrequest.pb.h \
-    src/chainparams-checkpoints.h
+    src/chainparams-checkpoints.h \
+    src/plccertificate.h \
+    src/plcvalidator.h
 
 #ENABLE_ZMQ
 #    src/zmq/zmqabstractnotifier.h \
@@ -715,4 +719,5 @@ system($$QMAKE_LRELEASE -silent $$_PRO_FILE_)
 
 DISTFILES += \
     src/qt/paymentrequest.proto \
+    Makefile.am \
     src/Makefile.am

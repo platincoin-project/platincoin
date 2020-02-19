@@ -212,11 +212,7 @@ UniValue generatetoaddress(const JSONRPCRequest& request)
 
     CBitcoinAddress address(request.params[1].get_str());
     if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid  fee address");
-    
-    CBitcoinAddress feeaddr(Params().miningAddress());
-    if (!feeaddr.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid award address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid fee address");
 
     boost::shared_ptr<CReserveScript> coinbaseScript(new CReserveScript());
     coinbaseScript->subsidyDestination   = GetScriptForDestination(address.Get());
@@ -962,6 +958,7 @@ static const CRPCCommand commands[] =
     { "mining",             "submitblock",            &submitblock,            true,  {"hexdata","parameters"} },
 
     { "generating",         "generate",               &generate,               true,  {"nblocks","maxtries"} },
+    { "generating",         "generatetoaddress",      &generatetoaddress,      true,  {"nblocks","address","maxtries"} },
 
     { "util",               "estimatefee",            &estimatefee,            true,  {"nblocks"} },
     { "util",               "estimatepriority",       &estimatepriority,       true,  {"nblocks"} },

@@ -8,6 +8,7 @@
 
 #include "script/interpreter.h"
 #include "uint256.h"
+#include "plccertificate.h"
 
 #include <boost/variant.hpp>
 
@@ -72,9 +73,14 @@ typedef boost::variant<CNoDestination, CKeyID, CScriptID> CTxDestination;
 
 const char* GetTxnOutputType(txnouttype t);
 
+bool IsValidSignatureEncoding(const std::vector<unsigned char> &sig);
+bool IsCompressedOrUncompressedPubKey(const std::vector<unsigned char> &vchPubKey);
+
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
+bool isMintingTx(const CTransaction & tx);
+bool isMintingScript(const CScript & scriptSig, std::vector<plc::Certificate> & certs);
 
 CScript GetScriptForDestination(const CTxDestination& dest);
 CScript GetScriptForRawPubKey(const CPubKey& pubkey);

@@ -12,10 +12,14 @@
 #include "pubkey.h"
 #include "script/script.h"
 #include "uint256.h"
+#include "util.h"
 #include "validation.h"
 #include "chainparams.h"
 #include "validation.h"
 #include "base58.h"
+#include "plccertificate.h"
+#include "plcvalidator.h"
+#include "streams.h"
 
 using namespace std;
 
@@ -67,7 +71,7 @@ static inline void popstack(vector<valtype>& stack)
     stack.pop_back();
 }
 
-bool static IsCompressedOrUncompressedPubKey(const valtype &vchPubKey) {
+bool IsCompressedOrUncompressedPubKey(const std::vector<unsigned char> &vchPubKey) {
     if (vchPubKey.size() < 33) {
         //  Non-canonical public key: too short
         return false;
@@ -106,12 +110,12 @@ bool static IsCompressedPubKey(const valtype &vchPubKey) {
  * Where R and S are not negative (their first byte has its highest bit not set), and not
  * excessively padded (do not start with a 0 byte, unless an otherwise negative number follows,
  * in which case a single 0 byte is necessary and even required).
- * 
+ *
  * See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
  *
  * This function is consensus-critical since BIP66.
  */
-bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
+bool IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
     // Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S] [sighash]
     // * total-length: 1-byte length descriptor of everything that follows,
     //   excluding the sighash byte.
@@ -146,7 +150,7 @@ bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
     // Verify that the length of the signature matches the sum of the length
     // of the elements.
     if ((size_t)(lenR + lenS + 7) != sig.size()) return false;
- 
+
     // Check whether the R element is an integer.
     if (sig[2] != 0x02) return false;
 
@@ -872,7 +876,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     popstack(stack);
                     stack.push_back(vchHash);
                 }
-                break;                                   
+                break;
 
                 case OP_CODESEPARATOR:
                 {
@@ -966,6 +970,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                     bool fSuccess = true;
                     while (fSuccess && nSigsCount > 0)
+
                     {
                         valtype& vchSig    = stacktop(-isig);
                         valtype& vchPubKey = stacktop(-ikey);
@@ -1029,8 +1034,79 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 }
                 break;
 
+                case OP_CHECKREWARD:
+                {
+                    if (stack.size() < 6)
+                    {
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    }
+
+                    std::vector<plc::Certificate> certs(2);
+
+                    // endpoint activation
+                    {
+                        plc::Certificate & cert = certs[1];
+                        cert.vout = CScriptNum(stacktop(-1), true).get<uint32_t>();
+                        if (stacktop(-2).size() != sizeof(uint256))
+                        {
+                            return set_error(serror, SCRIPT_ERR_BAD_REWARD_SCRIPT);
+                        }
+                        cert.txid = uint256(stacktop(-2));
+                    }
+
+                    // ca activation
+                    {
+                        plc::Certificate & cert = certs[0];
+                        cert.vout = CScriptNum(stacktop(-3), true).get<uint32_t>();
+                        if (stacktop(-4).size() != sizeof(uint256))
+                        {
+                            return set_error(serror, SCRIPT_ERR_BAD_REWARD_SCRIPT);
+                        }
+                        cert.txid = uint256(stacktop(-4));
+                    }
+
+                    size_t stackUsed = 4;
+                    std::vector<std::vector<unsigned char> > pubkeys;
+                    std::vector<std::vector<unsigned char> > signatures;
+                    while (stack.size() >= stackUsed+2)
+                    {
+                        ++stackUsed;
+                        pubkeys.emplace_back(stacktop(-stackUsed));
+                        ++stackUsed;
+                        signatures.emplace_back(stacktop(-stackUsed));
+
+                        if (!CheckSignatureEncoding(signatures.back(), flags, serror) ||
+                            !CheckPubKeyEncoding(pubkeys.back(), flags, sigversion, serror))
+                        {
+                            // serror is set
+                            return false;
+                        }
+                    }
+
+                    if (stack.size() != stackUsed)
+                    {
+                        return set_error(serror, SCRIPT_ERR_BAD_REWARD_SCRIPT);
+                    }
+
+                    // Subset of script starting at the most recent codeseparator
+                    CScript scriptCode(pbegincodehash, pend);
+                    bool fSuccess = checker.CheckReward(scriptCode, signatures, pubkeys, certs, serror);
+                    if (!fSuccess && (flags & SCRIPT_VERIFY_REWARD))
+                    {
+                        return false;
+                    }
+
+                    // rm values from stack
+                    stack.clear();
+
+                    stack.push_back(vchTrue);
+                }
+                break;
+
                 default:
+                {
                     return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+                }
             }
 
             // Size limits
@@ -1353,6 +1429,352 @@ bool TransactionSignatureChecker::CheckSequence(const CScriptNum& nSequence) con
     // comparison is a simple numeric one.
     if (nSequenceMasked > txToSequenceMasked)
         return false;
+
+    return true;
+}
+
+uint32_t getCoinWeight(const CCoins * coins,
+                       const plc::Validator::CertParameters & params)
+{
+    CBlockIndex * pindex = chainActive[coins->nHeight];
+
+    const uint32_t now   = chainActive.Tip()->nTime;
+
+    uint32_t coinAge     = (now - pindex->nTime) / 60;
+    uint32_t ageOfCert   = (now - params.blockTimestamp) / 60;
+
+    uint32_t coinWeight1 = coinAge < 20*24*60 ? 0 :
+                           coinAge < 30*24*60 ? coinAge : 30*24*60;
+    uint32_t coinWeight2 = coinAge <    23*60 ? 0 :
+                           coinAge < 30*24*60 ? coinAge : 30*24*60;
+
+    uint32_t coinWeight = params.flags & plc::Validator::fastMinting ?
+                          coinWeight2 : std::min(coinWeight1, ageOfCert);
+
+    return coinWeight;
+}
+
+bool TransactionSignatureChecker::CheckReward(const CScript & scriptCode,
+                                              const std::vector<std::vector<unsigned char> > & signatures,
+                                              const std::vector<std::vector<unsigned char> > & pubkeys,
+                                              const std::vector<plc::Certificate> & certs,
+                                              ScriptError * serror) const
+{
+    // validate certificate
+    plc::Validator validator;
+    plc::Validator::CertParameters params;
+    if (!validator.validateChainOfCerts(certs, pubkeys, params))
+    {
+        // no reward
+        LogPrintf("Zero percent for reward or validate chain failed <%s>\n", __func__);
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_ZERO_PERCENT);
+    }
+
+    uint32_t now   = chainActive.Tip()->nTime;
+
+    // time drift 23 hours (82800 seconds)
+    if (params.expirationDate != std::numeric_limits<unsigned int>::max() &&
+            (params.expirationDate > (0xffffffff-0x14370) || now > (params.expirationDate+0x14370)))
+    {
+        // expired
+        const plc::Certificate & cert = certs.back();
+        LogPrintf("%s: Cert expired <%s:%d>, expirationDate: %u, now: %u\n", __func__, cert.txid.ToString(), cert.vout, params.expirationDate, now);
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_CERT_EXPIRED);
+    }
+
+    CMutableTransaction fakeUserTx;
+
+    const double percent        = static_cast<double>(params.percent * 10) / COIN;
+
+    CAmount inputAmount         = 0;
+    CAmount inputMoneyBoxAmount = 0;
+    CAmount neededReward        = 0;
+
+    CScript userScriptPubKey;
+    CScript userScriptSig;
+
+    // inputs
+    for(uint32_t i = 0; i < txTo->vin.size(); ++i)
+    {
+        const CTxIn & vin = txTo->vin[i];
+        COutPoint prev(vin.prevout);
+
+        const CCoins * coins = pcoinsTip->AccessCoins(prev.hash);
+        if (!coins || !coins->IsAvailable(prev.n))
+        {
+            // txout is spent
+            LogPrintf("%s: txout is spent <%s>\n", __func__, prev.hash.ToString());
+            return set_error(serror, SCRIPT_ERR_BAD_REWARD_SPENT);
+        }
+
+        const CTxOut & vout = coins->vout[prev.n];
+
+        // money box?
+        if (vout.scriptPubKey == Params().moneyBoxAddress())
+        {
+            // yes
+            inputMoneyBoxAmount += vout.nValue;
+        }
+        else
+        {
+            if (userScriptPubKey.empty())
+            {
+                userScriptPubKey = vout.scriptPubKey;
+                userScriptSig    = vin.scriptSig;
+            }
+            else if (userScriptPubKey != vout.scriptPubKey)
+            {
+                LogPrintf("%s: user address mismatch <%s>\n", __func__, txTo->GetHash().ToString());
+                return set_error(serror, SCRIPT_ERR_BAD_REWARD_ADDR_MISMATCH);
+            }
+
+            fakeUserTx.vin.emplace_back(txTo->vin[i]);
+
+            inputAmount += vout.nValue;
+
+            // not from money box, user funds
+            // check coin age (get weight)
+            uint32_t coinWeight = getCoinWeight(coins, params);
+            if (coinWeight == 0)
+            {
+                LogPrintf("%s: txout is spent or not matured <%s>\n", __func__, prev.hash.ToString());
+                return set_error(serror, SCRIPT_ERR_VAD_REWARD_NOT_MATURED);
+            }
+
+            neededReward += (coins->vout[prev.n].nValue * coinWeight * percent) / (365 * 24 * 60);
+        }
+    }
+
+    std::vector<std::pair<opcodetype, std::vector<unsigned char> > > ops;
+    userScriptSig.parse(ops);
+
+    txnouttype type;
+    std::vector<CTxDestination> addrs;
+    int required = 0;
+    if (!ExtractDestinations(userScriptPubKey, type, addrs, required))
+    {
+        LogPrintf("%s: bad scriptPubKey <%s>\n", __func__, txTo->GetHash().ToString());
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_USER_ADDRESS);
+    }
+
+    if (type == TX_PUBKEYHASH)
+    {
+        // check user pub key
+        // scriptsig --> <signature><pubkey>
+        CPubKey pub(ops.back().second);
+        if (params.pubkeyHashes.size() != 1 || pub.GetID() != params.pubkeyHashes[0])
+        {
+            LogPrintf("%s: mismatch user pubKey <%s>\n", __func__, txTo->GetHash().ToString());
+            return set_error(serror, SCRIPT_ERR_BAD_REWARD_USER_ADDRESS);
+        }
+    }
+    else if (type == TX_SCRIPTHASH)
+    {
+        // multisig?
+        std::vector<std::pair<opcodetype, std::vector<unsigned char> > > mops;
+        CScript(ops.back().second.begin(), ops.back().second.end()).parse(mops);
+        if (mops.back().first != OP_CHECKMULTISIG)
+        {
+            LogPrintf("%s: not multisig p2sh <%s>\n", __func__, txTo->GetHash().ToString());
+            return set_error(serror, SCRIPT_ERR_BAD_REWARD_SCRIPT);
+        }
+
+        if (CScript::DecodeOP_N(mops.front().first) != static_cast<int>(params.requiredCountOfSigs) ||
+                mops.size()-3 != params.pubkeyHashes.size())
+        {
+            LogPrintf("%s: multisig with bad count of keys/signatures <%s>\n", __func__, txTo->GetHash().ToString());
+            return set_error(serror, SCRIPT_ERR_BAD_REWARD_SCRIPT);
+        }
+
+        for (size_t i = 0; i < mops.size()-3; ++i)
+        {
+            const CKeyID id = CPubKey(mops[i+1].second).GetID();
+            if (id != params.pubkeyHashes[i])
+            {
+                LogPrintf("%s: multisig error <%s>\n", __func__, txTo->GetHash().ToString());
+                return set_error(serror, SCRIPT_ERR_BAD_REWARD_SCRIPT);
+            }
+        }
+    }
+    else
+    {
+        LogPrintf("%s: bad destination <%s>\n", __func__, txTo->GetHash().ToString());
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_USER_ADDRESS);
+    }
+
+    // check count of money box inputs
+    if (inputMoneyBoxAmount > (neededReward + Params().awardGranularity()))
+    {
+        LogPrintf("%s: Too many moneybox inputs <%s>\n", __func__, txTo->GetHash().ToString());
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_MANY_MONEYBOX);
+    }
+
+    if (fakeUserTx.vin.size() == 0)
+    {
+        LogPrintf("%s: No user vin's <%s>\n", __func__, txTo->GetHash().ToString());
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_NO_USER_VINS);
+    }
+
+    CAmount outputAmount           = 0;
+    CAmount outputMoneyBoxAmount   = 0;
+    CAmount beneficiaryAmount      = 0;
+    CAmount knownBeneficiaryAmount = 0;
+    uint32_t countOfUserOutputs    = 0;
+    uint32_t countOfBenOutputs     = 0;
+
+    // outputs
+    for (uint32_t i = 0; i < txTo->vout.size(); ++i)
+    {
+        const CTxOut & vout = txTo->vout[i];
+
+        if (vout.scriptPubKey == Params().moneyBoxAddress())
+        {
+            // returned to money box
+            if (outputMoneyBoxAmount > 0)
+            {
+                LogPrintf("Too many moneybox outputs\n");
+                return set_error(serror, SCRIPT_ERR_BAD_REWARD_MANY_MONEYBOX_OUTS);
+            }
+            outputMoneyBoxAmount += vout.nValue;
+        }
+        else if (vout.scriptPubKey == userScriptPubKey)
+        {
+            // user funds
+            fakeUserTx.vout.emplace_back(vout);
+            outputAmount += vout.nValue;
+            ++countOfUserOutputs;
+        }
+        else
+        {
+            ++countOfBenOutputs;
+
+            // beneficiary
+            fakeUserTx.vout.emplace_back(vout);
+
+            // check address
+            CTxDestination dest;
+            if (!ExtractDestination(vout.scriptPubKey, dest))
+            {
+                // unknown destination
+                beneficiaryAmount += vout.nValue;
+                continue;
+            }
+            CKeyID id;
+            if (!CBitcoinAddress(dest).GetKeyID(id))
+            {
+                // unknown destination
+                beneficiaryAmount += vout.nValue;
+                continue;
+            }
+            if (params.beneficiaryKeyHash != id)
+            {
+                // unknown destination
+                beneficiaryAmount += vout.nValue;
+                continue;
+            }
+            // wow, known beneficiary
+            knownBeneficiaryAmount += vout.nValue;
+        }
+    }
+
+    // check user and ben outputs
+    if (countOfUserOutputs > fakeUserTx.vin.size())
+    {
+        LogPrintf("%s: Too many user outputs <%s>\n", __func__, txTo->GetHash().ToString());
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_MANY_USER_OUTS);
+    }
+    if (countOfBenOutputs > fakeUserTx.vin.size())
+    {
+        LogPrintf("%s: Too many beneficiary outputs <%s>\n", __func__, txTo->GetHash().ToString());
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_MANY_BEN_OUTS);
+    }
+
+    // tx fee
+    CAmount fee = (inputAmount + inputMoneyBoxAmount) -
+                   (outputAmount + outputMoneyBoxAmount +
+                        beneficiaryAmount + knownBeneficiaryAmount);
+
+    // fake tx fee (for unknown beneficiary)
+    CAmount fakeUserFee = fee * GetTransactionWeight(fakeUserTx) / GetTransactionWeight(*txTo);
+
+    // check common amount
+    if (outputAmount + beneficiaryAmount + knownBeneficiaryAmount > inputAmount + neededReward)
+    {
+        // hey, man, it's a robbery
+        LogPrintf("%s: WOW, robbery!!! %d vs %d\n",
+                  __func__,
+                  (inputAmount + neededReward),
+                  (outputAmount + beneficiaryAmount + knownBeneficiaryAmount));
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_ROBBERY);
+    }
+
+    if (inputAmount > outputAmount)
+    {
+        LogPrintf("%s: wrong output amount (less than input)\n", __func__);
+        return false;
+    }
+
+    // with beneficiary
+    if (knownBeneficiaryAmount > 0 || beneficiaryAmount > 0)
+    {
+        // check unknown beneficiary
+        if (beneficiaryAmount > 0)
+        {
+            if (neededReward <= fakeUserFee)
+            {
+                LogPrintf("%s: Reward less than fee\n", __func__);
+                return set_error(serror, SCRIPT_ERR_BAD_REWARD_LESS_THAN_FEE);
+            }
+            if (beneficiaryAmount > neededReward-fakeUserFee)
+            {
+                LogPrintf("%s: Beneficiary amount to high\n", __func__);
+                return set_error(serror, SCRIPT_ERR_BAD_REWARD_BIG_BEN);
+            }
+        }
+    }
+
+    // Hash type is one byte tacked on to the end of the signature
+    if (signatures.empty())
+    {
+        LogPrintf("%s: no signatures\n", __func__);
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_NOSIG);
+    }
+
+    if (signatures.size() != pubkeys.size())
+    {
+        LogPrintf("%s: wrong count of signatures\n", __func__);
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_WRONG_SIG);
+    }
+
+    if (signatures.size() < params.requiredCountOfSigs)
+    {
+        LogPrintf("%s: count of signatures less than required\n", __func__);
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_WRONG_SIG);
+    }
+
+    for (size_t i = 0; i < pubkeys.size(); ++i)
+    {
+        int nHashType = signatures[i].back();
+
+        uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, SIGVERSION_BASE, txdata);
+
+        if (!validator.verify(sighash, signatures[i], pubkeys[i]))
+        {
+            LogPrintf("%s: invalid signature <%d>\n", __func__, i);
+            return set_error(serror, SCRIPT_ERR_BAD_REWARD_INVALID_SIG);
+        }
+    }
+
+    CAmount existingReward = outputAmount + beneficiaryAmount + knownBeneficiaryAmount - inputAmount;
+
+    // check minting limits
+    if (params.mintingLimit < params.mintingCurrent + existingReward)
+    {
+        LogPrintf("%s: minting limit is exceeded <%s:%d> (allowed %d vs %d) \n",
+                  __func__, certs.back().txid.ToString(), certs.back().vout,
+                  params.mintingLimit - params.mintingCurrent, existingReward);
+        return set_error(serror, SCRIPT_ERR_BAD_REWARD_LIMIT);
+    }
 
     return true;
 }

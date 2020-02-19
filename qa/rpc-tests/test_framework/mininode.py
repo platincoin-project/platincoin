@@ -40,6 +40,8 @@ import plc_cryptonight
 #from pyqryptonight.pyqryptonight import Qryptonight, UInt256ToString
 from test_framework.siphash import siphash256
 from array import array
+from decimal import Decimal, ROUND_DOWN
+
 
 BIP0031_VERSION = 60000
 MY_VERSION = 80014  # past bip-31 for ping/pong
@@ -50,6 +52,7 @@ MAX_INV_SZ = 50000
 MAX_BLOCK_BASE_SIZE = 1000000
 
 COIN = 100000000 # 1 btc in satoshis
+MAX_MONEY = 84000000 * COIN
 
 NODE_NETWORK = (1 << 0)
 NODE_GETUTXO = (1 << 1)
@@ -292,8 +295,7 @@ class CBlockLocator(object):
         return r
 
     def __repr__(self):
-        return "CBlockLocator(nVersion=%i vHave=%s)" \
-            % (self.nVersion, repr(self.vHave))
+        return "CBlockLocator(nVersion=%i vHave=[%s])" % (self.nVersion, ', '.join('%064x' % x for x in self.vHave))
 
 
 class COutPoint(object):
@@ -523,8 +525,8 @@ class CTransaction(object):
         return True
 
     def __repr__(self):
-        return "CTransaction(nVersion=%i vin=%s vout=%s wit=%s nLockTime=%i)" \
-            % (self.nVersion, repr(self.vin), repr(self.vout), repr(self.wit), self.nLockTime)
+        return "CTransaction(nVersion=%i vin=%s vout=%s wit=%s nLockTime=%i sha256=%064x)" \
+            % (self.nVersion, repr(self.vin), repr(self.vout), repr(self.wit), self.nLockTime, self.sha256 if self.sha256 is not None else 0)
 
 
 class CBlockHeader(object):
@@ -597,9 +599,9 @@ class CBlockHeader(object):
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%u (%s) nBits=%08x nNonce=%08x)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce)
+               self.nTime, time.ctime(self.nTime), self.nBits, self.nNonce)
 
 
 class CBlock(CBlockHeader):
@@ -668,9 +670,9 @@ class CBlock(CBlockHeader):
             self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%u (%s) nBits=%08x nNonce=%08x vtx=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
+               self.nTime, time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
 
 
 class CUnsignedAlert(object):
@@ -1178,7 +1180,11 @@ class msg_generic(object):
         return self.data
 
     def __repr__(self):
-        return "msg_generic()"
+        # print only first BYTES_TO_PRINT bytes:
+        BYTES_TO_PRINT = 1024
+        return "msg_generic(len={}, data={}{})".format(len(self.data),
+                                                       bytes_to_hex_str(self.data[0:BYTES_TO_PRINT]),
+                                                       '...' if len(self.data) > BYTES_TO_PRINT else '')
 
 class msg_witness_block(msg_block):
 
@@ -1375,8 +1381,8 @@ def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf')):
             if predicate():
                 return True
         attempt += 1
-        elapsed += 0.05
-        time.sleep(0.05)
+        elapsed += 0.5
+        time.sleep(0.5)
 
     return False
 
@@ -1777,6 +1783,7 @@ class NodeConn(asyncore.dispatcher):
             h = sha256(th)
             tmsg += h[:4]
         tmsg += data
+        # print('Will send_message ({}): {}, self: {}'.format(len(data), message, hex(id(self))))
         with mininode_lock:
             self.sendbuf += tmsg
             self.last_sent = time.time()
@@ -1788,6 +1795,7 @@ class NodeConn(asyncore.dispatcher):
         if self.last_sent + 30 * 60 < time.time():
             self.send_message(self.messagemap[b'ping']())
         self.show_debug_msg("Recv %s" % repr(message))
+        # print('got_message: {}, self: {}'.format(message, hex(id(self))))
         self.cb.deliver(self, message)
 
     def disconnect_node(self):
@@ -1816,3 +1824,23 @@ class EarlyDisconnectError(Exception):
 
     def __str__(self):
         return repr(self.value)
+
+def ToCoins(amount):
+    if type(amount) == type(''):
+        amount = Decimal(amount)
+    if type(amount) == type(Decimal(0)):
+        return amount.quantize(Decimal('.00000001'), rounding=ROUND_DOWN)
+    if type(amount) == type(int(0)):
+        return Decimal(amount) / COIN
+    print('amount: {}, type: {}'.format(amount, type(amount)))
+    assert(0)
+
+def ToSatoshi(amount):
+    if type(amount) == type(''):
+        amount = Decimal(amount)
+    if type(amount) == type(int(0)):
+        return amount
+    if type(amount) == type(Decimal(0)):
+        return int(amount * COIN)
+    print('amount: {}, type: {}'.format(amount, type(amount)))
+    assert(0)

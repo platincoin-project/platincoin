@@ -6,6 +6,8 @@
 
 #include "memusage.h"
 #include "random.h"
+#include "chainparams.h"
+#include "util.h"
 
 #include <assert.h>
 
@@ -37,7 +39,70 @@ bool CCoins::Spend(uint32_t nPos)
     if (nPos >= vout.size() || vout[nPos].IsNull())
         return false;
     vout[nPos].SetNull();
+    m_voutStorage[nPos].clear();
     Cleanup();
+
+    assert(vout.size() == m_voutStorage.size());
+
+    return true;
+}
+
+bool CCoins::getMintedAmount(const unsigned int n,
+                             uint32_t & version, uint32_t & timestamp, CAmount & amount) const
+
+{
+    assert(vout.size() == m_voutStorage.size());
+
+    if (!IsAvailable(n))
+    {
+        return false;
+    }
+    if (m_voutStorage[n].empty())
+    {
+        return false;
+    }
+
+    CDataStream existing(m_voutStorage[n], SER_DISK, 0);
+    existing >> version >> timestamp >> amount;
+
+    LogPrintf("%s: version %d - timestamp %d - amount %d\n", __func__, version, timestamp, amount);
+
+    return true;
+}
+
+bool CCoins::updateMintedAmount(const unsigned int n,
+                                const uint32_t & version, const uint32_t & timestamp, const CAmount & amount)
+{
+    assert(vout.size() == m_voutStorage.size());
+
+    if (!IsAvailable(n))
+    {
+        return false;
+    }
+
+    CDataStream stream(SER_DISK, 0);
+    stream << version << timestamp << amount;
+    m_voutStorage[n].resize(stream.size());
+    std::copy(stream.begin(), stream.end(), m_voutStorage[n].begin());
+
+    LogPrintf("%s: version %d - timestamp %d - amount %d\n", __func__, version, timestamp, amount);
+
+    return true;
+}
+
+bool CCoins::clearMintedAmount(const unsigned int n)
+{
+    assert(vout.size() == m_voutStorage.size());
+
+    if (!IsAvailable(n))
+    {
+        return false;
+    }
+
+    m_voutStorage[n].clear();
+
+    LogPrintf("%s: reset storage\n", __func__);
+
     return true;
 }
 
@@ -99,6 +164,7 @@ bool CCoinsViewCache::GetCoins(const uint256 &txid, CCoins &coins) const {
 CCoinsModifier CCoinsViewCache::ModifyCoins(const uint256 &txid) {
     assert(!hasModifier);
     std::pair<CCoinsMap::iterator, bool> ret = cacheCoins.insert(std::make_pair(txid, CCoinsCacheEntry()));
+
     size_t cachedCoinUsage = 0;
     if (ret.second) {
         if (!base->GetCoins(txid, ret.first->second.coins)) {
@@ -112,6 +178,7 @@ CCoinsModifier CCoinsViewCache::ModifyCoins(const uint256 &txid) {
     } else {
         cachedCoinUsage = ret.first->second.coins.DynamicMemoryUsage();
     }
+
     // Assume that whenever ModifyCoins is called, the entry will be modified.
     ret.first->second.flags |= CCoinsCacheEntry::DIRTY;
     return CCoinsModifier(*this, ret.first, cachedCoinUsage);
@@ -131,15 +198,20 @@ CCoinsModifier CCoinsViewCache::ModifyCoins(const uint256 &txid) {
  * both of which were coinbases.  We do not mark these fresh so we we can ensure
  * that they will still be properly overwritten when spent.
  */
-CCoinsModifier CCoinsViewCache::ModifyNewCoins(const uint256 &txid, bool coinbase) {
+CCoinsModifier CCoinsViewCache::ModifyNewCoins(const uint256 &txid, bool coinbase)
+{
     assert(!hasModifier);
     std::pair<CCoinsMap::iterator, bool> ret = cacheCoins.insert(std::make_pair(txid, CCoinsCacheEntry()));
-    if (!coinbase) {
+    if (!coinbase)
+    {
         // New coins must not already exist.
         if (!ret.first->second.coins.IsPruned())
+        {
             throw std::logic_error("ModifyNewCoins should not find pre-existing coins on a non-coinbase unless they are pruned!");
+        }
 
-        if (!(ret.first->second.flags & CCoinsCacheEntry::DIRTY)) {
+        if (!(ret.first->second.flags & CCoinsCacheEntry::DIRTY))
+        {
             // If the coin is known to be pruned (have no unspent outputs) in
             // the current view and the cache entry is not dirty, we know the
             // coin also must be pruned in the parent view as well, so it is safe
@@ -272,13 +344,47 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
 CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
 {
     if (tx.IsCoinBase())
+    {
         return 0;
+    }
 
     CAmount nResult = 0;
     for (unsigned int i = 0; i < tx.vin.size(); i++)
+    {
         nResult += GetOutputFor(tx.vin[i]).nValue;
+    }
 
     return nResult;
+}
+
+CAmount CCoinsViewCache::GetUsedMoneyBoxAmount(const CTransaction & tx) const
+{
+    if (tx.IsCoinBase())
+    {
+        return 0;
+    }
+
+    CAmount nResult = 0;
+
+    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    {
+        const CTxOut & out = GetOutputFor(tx.vin[i]);
+        if (out.scriptPubKey == Params().moneyBoxAddress())
+        {
+            nResult += out.nValue;
+        }
+    }
+
+    for (unsigned int i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOut & out = tx.vout[i];
+        if (out.scriptPubKey == Params().moneyBoxAddress())
+        {
+            nResult -= out.nValue;
+        }
+    }
+
+    return nResult < 0 ? 0 : nResult;
 }
 
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const

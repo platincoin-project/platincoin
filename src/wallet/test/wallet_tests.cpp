@@ -441,7 +441,7 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
     CWallet *pwalletMainBackup = ::pwalletMain;
     LOCK(cs_main);
 
-    CScript scriptAward = GetScriptForDestination(CBitcoinAddress(Params().miningAddress()).Get());
+    CScript scriptAward = Params().moneyBoxAddress();
 
     // Create two blocks with same timestamp to verify that importwallet rescan
     // will pick up both blocks, not just the first.

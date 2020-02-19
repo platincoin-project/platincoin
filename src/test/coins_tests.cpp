@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
                     updated_an_entry = true;
                 }
                 coins.nVersion = insecure_rand();
-                coins.vout.resize(1);
+                coins.resize(1);
                 coins.vout[0].nValue = insecure_rand();
                 *entry = coins;
             } else {
@@ -521,6 +521,7 @@ void SetCoinsValue(CAmount value, CCoins& coins)
     assert(coins.IsPruned());
     if (value != PRUNED) {
         coins.vout.emplace_back();
+        coins.m_voutStorage.emplace_back();
         coins.vout.back().nValue = value;
         assert(!coins.IsPruned());
     }

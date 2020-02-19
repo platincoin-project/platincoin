@@ -7,6 +7,11 @@
 
 static CMainSignals g_signals;
 
+CValidationInterface::~CValidationInterface()
+{
+
+}
+
 CMainSignals& GetMainSignals()
 {
     return g_signals;

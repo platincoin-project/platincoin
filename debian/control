@@ -1,14 +1,12 @@
 Source: platincoin
-Section: unknown
+Section: misc
 Priority: extra
 Maintainer: PlatinCoin <norepy@plc-group.ag>
 Build-Depends:
   debhelper (>= 5), autotools-dev, libboost-chrono-dev, libboost-filesystem-dev, libboost-program-options-dev,
   libboost-system-dev, libboost-test-dev, libboost-thread-dev, libevent-dev, libminiupnpc-dev, libprotobuf-dev,
   libqrencode-dev, qttools5-dev, libssl-dev, libzmq3-dev 
-Standards-Version: 3.8.4
-
 Package: platincoin
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Version:<<<please check ci script and fix line no for sed>>>
+Architecture: amd64
 Description: PlatinCoin Node

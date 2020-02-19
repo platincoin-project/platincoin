@@ -116,17 +116,18 @@ void BlockAssembler::resetBlock()
     inBlock.clear();
 
     // Reserve space for coinbase tx
-    nBlockSize = 1000;
-    nBlockWeight = 4000;
+    nBlockSize       = 1000;
+    nBlockWeight     = 4000;
     nBlockSigOpsCost = 400;
-    fIncludeWitness = false;
+    fIncludeWitness  = false;
 
     // These counters do not include coinbase tx
-    nBlockTx = 0;
-    nFees = 0;
+    nBlockTx         = 0;
+    nFees            = 0;
+    nRefill          = 0;
 
-    lastFewTxs = 0;
-    blockFinished = false;
+    lastFewTxs       = 0;
+    blockFinished    = false;
 }
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript & subsidyPubKeyIn,
@@ -205,26 +206,23 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript & s
     coinbaseTx.vout[0].scriptPubKey = subsidyPubKeyIn;
     coinbaseTx.vout[0].nValue       = subsidy;
 
-    // PLC award
-    CAmount award = GetBlockAward(nHeight, chainparams.GetConsensus());
-    if (award > 0)
+    if (nHeight <= chainparams.countOfInitialAwardBlocks())
     {
-        CBitcoinAddress addr(chainparams.miningAddress());
-        if (!addr.IsValid())
-        {
-            LogPrintf("CreateNewBlock(): invalid address for coinbase award <%s>", chainparams.miningAddress());
-            return nullptr;
-        }
+        nRefill = 100*COIN;
+    }
 
+    // PLC award
+    if (nRefill > 0)
+    {
         uint32_t gran = chainparams.awardGranularity();
-        uint32_t count = (award / gran);
+        uint32_t count = (nRefill / gran);
         for (uint32_t i = 0; i < count; ++i)
         {
-            coinbaseTx.vout.push_back(CTxOut(gran, GetScriptForDestination(addr.Get())));
+            coinbaseTx.vout.push_back(CTxOut(gran, chainparams.moneyBoxAddress()));
         }
-        if (award % gran)
+        if (nRefill % gran)
         {
-            coinbaseTx.vout.push_back(CTxOut(award % gran, GetScriptForDestination(addr.Get())));
+            coinbaseTx.vout.push_back(CTxOut(nRefill % gran, chainparams.moneyBoxAddress()));
         }
     }
 
@@ -233,7 +231,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript & s
     pblocktemplate->vTxFees[0] = -nFees;
 
     uint64_t nSerializeSize = GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION);
-    LogPrintf("CreateNewBlock(): total size: %u block weight: %u txs: %u fees: %ld sigops %d\n", nSerializeSize, GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
+    LogPrintf("CreateNewBlock(): total size: %u block weight: %u txs: %u fees: %ld refill: %ld sigops %d\n",
+              nSerializeSize, GetBlockWeight(*pblock), nBlockTx, nFees, nRefill, nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
@@ -374,7 +373,8 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
     nBlockWeight += iter->GetTxWeight();
     ++nBlockTx;
     nBlockSigOpsCost += iter->GetSigOpCost();
-    nFees += iter->GetFee();
+    nFees   += iter->GetFee();
+    nRefill += iter->GetMoneyBoxRefill();
     inBlock.insert(iter);
 
     bool fPrintPriority = GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);

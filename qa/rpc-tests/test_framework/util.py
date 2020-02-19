@@ -52,9 +52,9 @@ MOCKTIME = 0
 def enable_mocktime():
     #For backwared compatibility of the python scripts
     #with previous versions of the cache, set MOCKTIME 
-    #to Jan 1, 2014 + (201 * 10 * 60)
+    #to Now 26, 2018 + (201 * 90)
     global MOCKTIME
-    MOCKTIME = 1388534400 + (201 * 10 * 60)
+    MOCKTIME = 1543222800 + (201 * 90)
 
 def disable_mocktime():
     global MOCKTIME
@@ -118,6 +118,19 @@ def bytes_to_hex_str(byte_str):
 def hex_str_to_bytes(hex_str):
     return unhexlify(hex_str.encode('ascii'))
 
+def reverse(s):
+    return s[::-1]
+
+def is_hex_str(s):
+    if type(s) is not str:
+        return False
+    if len(s) % 2 == 1:
+        return False
+    for c in s:
+        if c not in '0123456789ABCDEFabcdef':
+            return False
+    return True
+
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
 
@@ -156,6 +169,7 @@ def sync_chain(rpc_connections, *, wait=1, timeout=60):
             return
         time.sleep(wait)
         timeout -= wait
+    print('best_hashes: {}'.format(best_hash))
     raise AssertionError("Chain sync failed: Best block hashes don't match")
 
 def sync_mempools(rpc_connections, *, wait=1, timeout=60):
@@ -275,13 +289,13 @@ def initialize_chain(test_dir, num_nodes, cachedir):
         # blocks are created with timestamps 10 minutes apart
         # starting from 2010 minutes in the past
         enable_mocktime()
-        block_time = get_mocktime() - (201 * 10 * 60)
+        block_time = get_mocktime() - (201 * 90)
         for i in range(2):
             for peer in range(4):
                 for j in range(25):
                     set_node_times(rpcs, block_time)
                     rpcs[peer].generate(1)
-                    block_time += 10*60
+                    block_time += 90
                 # Must sync before next peer starts generating blocks
                 sync_blocks(rpcs)
 
@@ -510,10 +524,10 @@ def assert_fee_amount(fee, tx_size, fee_per_kB):
     """Assert the fee was in range"""
     target_fee = tx_size * fee_per_kB / 1000
     if fee < target_fee:
-        raise AssertionError("Fee of %s LTC too low! (Should be %s LTC)"%(str(fee), str(target_fee)))
-    # allow the wallet's estimation to be at most 2 bytes off
-    if fee > (tx_size + 2) * fee_per_kB / 1000:
-        raise AssertionError("Fee of %s LTC too high! (Should be %s LTC)"%(str(fee), str(target_fee)))
+        raise AssertionError("Fee of %s PLC too low! (Should be %s PLC)" % (str(fee), str(target_fee)))
+    # allow the wallet's estimation to be at most 4 bytes off
+    if fee > (tx_size + 4) * fee_per_kB / 1000:
+        raise AssertionError("Fee of %s PLC too high! (Should be %s PLC)" % (str(fee), str(target_fee)))
 
 def assert_equal(thing1, thing2, *args):
     if thing1 != thing2 or any(thing1 != arg for arg in args):
@@ -526,6 +540,14 @@ def assert_greater_than(thing1, thing2):
 def assert_greater_than_or_equal(thing1, thing2):
     if thing1 < thing2:
         raise AssertionError("%s < %s"%(str(thing1),str(thing2)))
+
+def assert_in(thing, container):
+    if thing not in container:
+        raise AssertionError('{} is not in {}'.format(thing, container))
+
+def assert_startswith(full_string, fragment):
+    if not full_string.startswith(fragment):
+        raise AssertionError('"{}" not starts with "{}"'.format(full_string, fragment))
 
 def assert_raises(exc, fun, *args, **kwds):
     assert_raises_message(exc, None, fun, *args, **kwds)
@@ -714,3 +736,6 @@ def mine_large_block(node, utxos=None):
 def get_bip9_status(node, key):
     info = node.getblockchaininfo()
     return info['bip9_softforks'][key]
+
+def hashToHex(hash):
+    return format(hash, '064x')

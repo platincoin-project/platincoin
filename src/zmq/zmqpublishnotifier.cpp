@@ -7,6 +7,7 @@
 #include "zmqpublishnotifier.h"
 #include "validation.h"
 #include "util.h"
+#include "univalue.h"
 #include "rpc/rpcserver.h"
 
 static std::multimap<std::string, CZMQAbstractPublishNotifier*> mapPublishNotifiers;
@@ -15,6 +16,11 @@ static const char *MSG_HASHBLOCK = "hashblock";
 static const char *MSG_HASHTX    = "hashtx";
 static const char *MSG_RAWBLOCK  = "rawblock";
 static const char *MSG_RAWTX     = "rawtx";
+static const char *MSG_JSONBLOCK = "jsonblock";
+static const char *MSG_JSONTX    = "jsontx";
+
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
+void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
 
 // Internal function to send multipart message
 static int zmq_send_multipart(void *sock, const void* data, size_t size, ...)
@@ -190,4 +196,42 @@ bool CZMQPublishRawTransactionNotifier::NotifyTransaction(const CTransaction &tr
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
     ss << transaction;
     return SendMessage(MSG_RAWTX, &(*ss.begin()), ss.size());
+}
+
+bool CZMQPublishJsonBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
+{
+    LogPrint("zmq", "zmq: Publish block in json %s\n", pindex->GetBlockHash().GetHex());
+
+    const Consensus::Params& consensusParams = Params().GetConsensus();
+
+    UniValue ret(UniValue::VOBJ);
+    {
+        LOCK(cs_main);
+        CBlock block;
+        if(!ReadBlockFromDisk(block, pindex, consensusParams))
+        {
+            zmqError("Can't read block from disk");
+            return false;
+        }
+
+        ret = blockToJSON(block, pindex);
+
+    }
+
+    std::string result = ret.write();
+
+    return SendMessage(MSG_JSONBLOCK, result.data(), result.size());
+}
+
+bool CZMQPublishJsonTransactionNotifier::NotifyTransaction(const CTransaction &transaction)
+{
+    uint256 hash = transaction.GetHash();
+    LogPrint("zmq", "zmq: Publish tx in json %s\n", hash.GetHex());
+
+    UniValue ret(UniValue::VOBJ);
+    TxToJSON(transaction, uint256(), ret);
+
+    std::string result = ret.write();
+
+    return SendMessage(MSG_JSONTX, result.data(), result.size());
 }

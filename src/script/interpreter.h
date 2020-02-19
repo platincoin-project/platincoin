@@ -8,6 +8,7 @@
 
 #include "script_error.h"
 #include "primitives/transaction.h"
+#include "plccertificate.h"
 
 #include <vector>
 #include <stdint.h>
@@ -105,7 +106,11 @@ enum
 
     // Public keys in segregated witness scripts must be compressed
     //
-    SCRIPT_VERIFY_WITNESS_PUBKEYTYPE = (1U << 15)
+    SCRIPT_VERIFY_WITNESS_PUBKEYTYPE = (1U << 15),
+
+    // Reward should be correct
+    //
+    SCRIPT_VERIFY_REWARD = (1U << 16),
 };
 
 bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);
@@ -146,6 +151,15 @@ public:
          return false;
     }
 
+    virtual bool CheckReward(const CScript & /*scriptCode*/,
+                             const std::vector<std::vector<unsigned char> > & /*signatures*/,
+                             const std::vector<std::vector<unsigned char> > & /*pubkeys*/,
+                             const std::vector<plc::Certificate> & /*certs*/,
+                             ScriptError * serror) const
+    {
+         return false;
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -166,6 +180,11 @@ public:
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const;
     bool CheckLockTime(const CScriptNum& nLockTime) const;
     bool CheckSequence(const CScriptNum& nSequence) const;
+    bool CheckReward(const CScript & scriptCode,
+                     const std::vector<std::vector<unsigned char> > & signatures,
+                     const std::vector<std::vector<unsigned char> > & pubkeys,
+                     const std::vector<plc::Certificate> & certs,
+                     ScriptError * serror) const;
 };
 
 class MutableTransactionSignatureChecker : public TransactionSignatureChecker

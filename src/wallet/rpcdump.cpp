@@ -120,12 +120,30 @@ UniValue importprivkey(const JSONRPCRequest& request)
     if (fRescan && fPruneMode)
         throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled in pruned mode");
 
-    CBitcoinSecret vchSecret;
-    bool fGood = vchSecret.SetString(strSecret);
+    CKey key;
 
-    if (!fGood) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key encoding");
+    if (IsHex(strSecret))
+    {
+        std::vector<unsigned char> vch = ParseHex(strSecret);
+        if (vch.size() != 32)
+        {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key size");
+        }
+        key.Set(vch.begin(), vch.end(), true);
+    }
+    else
+    {
+        CBitcoinSecret vchSecret;
+        bool fGood = false;
+        fGood = vchSecret.SetString(strSecret);
+        if (!fGood)
+        {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key encoding");
+        }
 
-    CKey key = vchSecret.GetKey();
+        key = vchSecret.GetKey();
+    }
+
     if (!key.IsValid()) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
 
     CPubKey pubkey = key.GetPubKey();

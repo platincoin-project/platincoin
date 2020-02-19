@@ -20,6 +20,7 @@
  */
 
 int64_t GetTime();
+int64_t GetUpTime();
 int64_t GetTimeMillis();
 int64_t GetTimeMicros();
 int64_t GetSystemTimeInSeconds(); // Like GetTime(), but not mockable

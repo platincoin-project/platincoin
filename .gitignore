@@ -113,3 +113,13 @@ contrib/devtools/split-debug.sh
 
 config.pri
 *.user
+.idea
+
+# Qt creator files:
+plc-coin.cflags
+plc-coin.config
+plc-coin.creator
+plc-coin.creator.user*
+plc-coin.cxxflags
+plc-coin.files
+plc-coin.includes

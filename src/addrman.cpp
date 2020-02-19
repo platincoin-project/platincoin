@@ -263,6 +263,12 @@ bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimeP
         // add services
         pinfo->nServices = ServiceFlags(pinfo->nServices | addr.nServices);
 
+        // update walletID (ignore null ids, they may be from old versions)
+        if (!addr.keyHDWallet.IsNull())
+        {
+            pinfo->keyHDWallet = addr.keyHDWallet;
+        }
+
         // do not update if no new information is present
         if (!addr.nTime || (pinfo->nTime && addr.nTime <= pinfo->nTime))
             return false;

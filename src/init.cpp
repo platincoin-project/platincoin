@@ -63,7 +63,9 @@
 #include <openssl/crypto.h>
 
 #if ENABLE_ZMQ
-#include "zmq/zmqnotificationinterface.h"
+#include <zmq/zmqabstractnotifier.h>
+#include <zmq/zmqnotificationinterface.h>
+#include <zmq/zmqrpc.h>
 #endif
 
 bool fFeeEstimatesInitialized = false;
@@ -74,10 +76,6 @@ static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 
 std::unique_ptr<CConnman> g_connman;
 std::unique_ptr<PeerLogicValidation> peerLogic;
-
-#if ENABLE_ZMQ
-static CZMQNotificationInterface* pzmqNotificationInterface = NULL;
-#endif
 
 #ifdef WIN32
 // Win32 LevelDB doesn't use filedescriptors, and the ones used for
@@ -212,7 +210,9 @@ void Shutdown()
     StopTorControl();
     UnregisterNodeSignals(GetNodeSignals());
     if (fDumpMempoolLater)
+    {
         DumpMempool();
+    }
 
     if (fFeeEstimatesInitialized)
     {
@@ -245,10 +245,10 @@ void Shutdown()
 #endif
 
 #if ENABLE_ZMQ
-    if (pzmqNotificationInterface) {
-        UnregisterValidationInterface(pzmqNotificationInterface);
-        delete pzmqNotificationInterface;
-        pzmqNotificationInterface = NULL;
+    if (g_zmq_notification_interface) {
+        UnregisterValidationInterface(g_zmq_notification_interface);
+        delete g_zmq_notification_interface;
+        g_zmq_notification_interface = NULL;
     }
 #endif
 
@@ -413,6 +413,8 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-zmqpubhashtx=<address>", _("Enable publish hash transaction in <address>"));
     strUsage += HelpMessageOpt("-zmqpubrawblock=<address>", _("Enable publish raw block in <address>"));
     strUsage += HelpMessageOpt("-zmqpubrawtx=<address>", _("Enable publish raw transaction in <address>"));
+    strUsage += HelpMessageOpt("-zmqpubjsonblock=<address>", _("Enable publish json block in <address>"));
+    strUsage += HelpMessageOpt("-zmqpubjsontx=<address>", _("Enable publish json transaction in <address>"));
 #endif
 
     strUsage += HelpMessageGroup(_("Debugging/Testing options:"));
@@ -962,13 +964,14 @@ bool AppInitParameterInteraction()
     }
 
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
-    nScriptCheckThreads = GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
-    if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += GetNumCores();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
+    nScriptCheckThreads = 0;
+    // nScriptCheckThreads = GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
+    // if (nScriptCheckThreads <= 0)
+    //     nScriptCheckThreads += GetNumCores();
+    // if (nScriptCheckThreads <= 1)
+    //     nScriptCheckThreads = 0;
+    // else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
+    //     nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
 
     // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
     int64_t nPruneArg = GetArg("-prune", 0);
@@ -991,6 +994,10 @@ bool AppInitParameterInteraction()
     RegisterAllCoreRPCCommands(tableRPC);
 #ifdef ENABLE_WALLET
     RegisterWalletRPCCommands(tableRPC);
+#endif
+
+#if ENABLE_ZMQ
+    RegisterZMQRPCCommands(tableRPC);
 #endif
 
     nConnectTimeout = GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
@@ -1356,10 +1363,10 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
 #if ENABLE_ZMQ
-    pzmqNotificationInterface = CZMQNotificationInterface::Create();
+    g_zmq_notification_interface = CZMQNotificationInterface::Create();
 
-    if (pzmqNotificationInterface) {
-        RegisterValidationInterface(pzmqNotificationInterface);
+    if (g_zmq_notification_interface) {
+        RegisterValidationInterface(g_zmq_notification_interface);
     }
 #endif
     uint64_t nMaxOutboundLimit = 0; //unlimited unless -maxuploadtarget is set

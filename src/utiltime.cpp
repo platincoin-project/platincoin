@@ -14,6 +14,7 @@
 
 using namespace std;
 
+static int64_t startTimestamp = time(nullptr);
 static int64_t nMockTime = 0; //!< For unit testing
 
 int64_t GetTime()
@@ -23,6 +24,11 @@ int64_t GetTime()
     time_t now = time(NULL);
     assert(now > 0);
     return now;
+}
+
+int64_t GetUpTime()
+{
+    return time(nullptr) - startTimestamp;
 }
 
 void SetMockTime(int64_t nMockTimeIn)

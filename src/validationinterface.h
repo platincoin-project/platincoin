@@ -31,17 +31,20 @@ void UnregisterValidationInterface(CValidationInterface* pwalletIn);
 void UnregisterAllValidationInterfaces();
 
 class CValidationInterface {
+public:
+    virtual ~CValidationInterface();
+
 protected:
-    virtual void UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockIndex *pindexFork, bool fInitialDownload) {}
-    virtual void SyncTransaction(const CTransaction &tx, const CBlockIndex *pindex, int posInBlock) {}
-    virtual void SetBestChain(const CBlockLocator &locator) {}
-    virtual void UpdatedTransaction(const uint256 &hash) {}
-    virtual void Inventory(const uint256 &hash) {}
-    virtual void ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman) {}
+    virtual void UpdatedBlockTip(const CBlockIndex */*pindexNew*/, const CBlockIndex */*pindexFork*/, bool /*fInitialDownload*/) {}
+    virtual void SyncTransaction(const CTransaction &/*tx*/, const CBlockIndex */*pindex*/, int /*posInBlock*/) {}
+    virtual void SetBestChain(const CBlockLocator &/*locator*/) {}
+    virtual void UpdatedTransaction(const uint256 &/*hash*/) {}
+    virtual void Inventory(const uint256 &/*hash*/) {}
+    virtual void ResendWalletTransactions(int64_t /*nBestBlockTime*/, CConnman* /*connman*/) {}
     virtual void BlockChecked(const CBlock&, const CValidationState&) {}
     virtual void GetScriptForMining(boost::shared_ptr<CReserveScript>&) {}
-    virtual void ResetRequestCount(const uint256 &hash) {}
-    virtual void NewPoWValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock>& block) {}
+    virtual void ResetRequestCount(const uint256 &/*hash*/) {}
+    virtual void NewPoWValidBlock(const CBlockIndex */*pindex*/, const std::shared_ptr<const CBlock>& /*block*/) {}
     friend void ::RegisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterAllValidationInterfaces();

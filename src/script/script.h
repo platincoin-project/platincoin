@@ -179,7 +179,7 @@ enum opcodetype
     OP_NOP10 = 0xb9,
 
     // PLC specific
-    OP_TEMPORARY_OPCODE = 0xc0,
+    OP_CHECKREWARD = 0xc0,
 
     // template matching params
     OP_SMALLINTEGER = 0xfa,
@@ -570,6 +570,22 @@ public:
         return true;
     }
 
+    typedef std::vector<std::pair<opcodetype, std::vector<unsigned char> > > Ops;
+    bool parse(Ops & ops) const
+    {
+        for (CScript::const_iterator it = begin_skipLeadingData(); it != end(); )
+        {
+            ops.resize(ops.size() + 1);
+            if (!GetOp(it, ops.back().first, ops.back().second))
+            {
+                ops.resize(ops.size()-1);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /** Encode/decode small integers: */
     static int DecodeOP_N(opcodetype opcode)
     {
@@ -644,6 +660,7 @@ public:
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;
+    bool IsPushOnly(const_iterator pc, const_iterator pend) const;
     bool IsPushOnly() const;
 
     /**
@@ -661,6 +678,9 @@ public:
         // The default std::vector::clear() does not release memory.
         CScriptBase().swap(*this);
     }
+
+    // return iterator for begin of script, skip leading data and op_drop(x)
+    const_iterator begin_skipLeadingData() const;
 };
 
 struct CScriptWitness

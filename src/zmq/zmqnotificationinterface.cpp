@@ -29,6 +29,15 @@ CZMQNotificationInterface::~CZMQNotificationInterface()
     }
 }
 
+std::list<const CZMQAbstractNotifier*> CZMQNotificationInterface::GetActiveNotifiers() const
+{
+    std::list<const CZMQAbstractNotifier*> result;
+    for (const auto* n : notifiers) {
+        result.push_back(n);
+    }
+    return result;
+}
+
 CZMQNotificationInterface* CZMQNotificationInterface::Create()
 {
     CZMQNotificationInterface* notificationInterface = NULL;
@@ -36,9 +45,11 @@ CZMQNotificationInterface* CZMQNotificationInterface::Create()
     std::list<CZMQAbstractNotifier*> notifiers;
 
     factories["pubhashblock"] = CZMQAbstractNotifier::Create<CZMQPublishHashBlockNotifier>;
-    factories["pubhashtx"] = CZMQAbstractNotifier::Create<CZMQPublishHashTransactionNotifier>;
-    factories["pubrawblock"] = CZMQAbstractNotifier::Create<CZMQPublishRawBlockNotifier>;
-    factories["pubrawtx"] = CZMQAbstractNotifier::Create<CZMQPublishRawTransactionNotifier>;
+    factories["pubhashtx"]    = CZMQAbstractNotifier::Create<CZMQPublishHashTransactionNotifier>;
+    factories["pubrawblock"]  = CZMQAbstractNotifier::Create<CZMQPublishRawBlockNotifier>;
+    factories["pubrawtx"]     = CZMQAbstractNotifier::Create<CZMQPublishRawTransactionNotifier>;
+    factories["pubjsonblock"] = CZMQAbstractNotifier::Create<CZMQPublishJsonBlockNotifier>;
+    factories["pubjsontx"]    = CZMQAbstractNotifier::Create<CZMQPublishJsonTransactionNotifier>;
 
     for (std::map<std::string, CZMQNotifierFactory>::const_iterator i=factories.begin(); i!=factories.end(); ++i)
     {
@@ -50,6 +61,7 @@ CZMQNotificationInterface* CZMQNotificationInterface::Create()
             CZMQAbstractNotifier *notifier = factory();
             notifier->SetType(i->first);
             notifier->SetAddress(address);
+            notifier->SetOutboundMessageHighWaterMark(static_cast<int>(GetArg(arg + "hwm", CZMQAbstractNotifier::DEFAULT_ZMQ_SNDHWM)));
             notifiers.push_back(notifier);
         }
     }
@@ -160,3 +172,5 @@ void CZMQNotificationInterface::SyncTransaction(const CTransaction& tx, const CB
         }
     }
 }
+
+CZMQNotificationInterface* g_zmq_notification_interface = nullptr;

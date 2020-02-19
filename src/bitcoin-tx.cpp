@@ -584,7 +584,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
                     throw std::runtime_error(err);
                 }
                 if ((unsigned int)nOut >= coins->vout.size())
-                    coins->vout.resize(nOut+1);
+                    coins->resize(nOut+1);
                 coins->vout[nOut].scriptPubKey = scriptPubKey;
                 coins->vout[nOut].nValue = 0;
                 if (prevOut.exists("amount")) {

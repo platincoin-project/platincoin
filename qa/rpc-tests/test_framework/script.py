@@ -17,6 +17,8 @@ Functionality to build scripts, as well as SignatureHash().
 
 from .mininode import CTransaction, CTxOut, sha256, hash256, uint256_from_str, ser_uint256, ser_string
 from binascii import hexlify
+from test_framework.util import *
+from test_framework.base58 import b58encode, b58decode, b58encode_chk, b58decode_chk, b58chars, checksum
 import hashlib
 
 import sys
@@ -242,6 +244,9 @@ OP_NOP8 = CScriptOp(0xb7)
 OP_NOP9 = CScriptOp(0xb8)
 OP_NOP10 = CScriptOp(0xb9)
 
+# PLC specific
+OP_CHECKREWARD = CScriptOp(0xc0)
+
 # template matching params
 OP_SMALLINTEGER = CScriptOp(0xfa)
 OP_PUBKEYS = CScriptOp(0xfb)
@@ -369,6 +374,8 @@ VALID_OPCODES = {
     OP_NOP9,
     OP_NOP10,
 
+    OP_CHECKREWARD,
+
     OP_SMALLINTEGER,
     OP_PUBKEYS,
     OP_PUBKEYHASH,
@@ -487,6 +494,7 @@ OPCODE_NAMES.update({
     OP_NOP8 : 'OP_NOP8',
     OP_NOP9 : 'OP_NOP9',
     OP_NOP10 : 'OP_NOP10',
+    OP_CHECKREWARD : 'OP_CHECKREWARD',
     OP_SMALLINTEGER : 'OP_SMALLINTEGER',
     OP_PUBKEYS : 'OP_PUBKEYS',
     OP_PUBKEYHASH : 'OP_PUBKEYHASH',
@@ -606,6 +614,7 @@ OPCODES_BY_NAME = {
     'OP_NOP8' : OP_NOP8,
     'OP_NOP9' : OP_NOP9,
     'OP_NOP10' : OP_NOP10,
+    'OP_CHECKREWARD' : OP_CHECKREWARD,
     'OP_SMALLINTEGER' : OP_SMALLINTEGER,
     'OP_PUBKEYS' : OP_PUBKEYS,
     'OP_PUBKEYHASH' : OP_PUBKEYHASH,
@@ -945,3 +954,34 @@ def SegwitVersion1SignatureHash(script, txTo, inIdx, hashtype, amount):
     ss += struct.pack("<I", hashtype)
 
     return hash256(ss)
+
+
+# Helper for getting the script associated with a P2PKH
+def GetP2PKHScript(pubkeyhash):
+    return CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG])
+
+def GetP2SHScript(scripthash):
+    return CScript([OP_HASH160, scripthash, OP_EQUAL])
+
+def GetP2SHMoneyboxScript():
+    op_checkreward_hash = hash160(bytearray([int(OP_CHECKREWARD)]))
+    return CScript([OP_HASH160, op_checkreward_hash, OP_EQUAL])
+
+def AddressFromPubkey(pubkey, testnet = True):
+    pubkeyhash = hash160(pubkey)
+    prefix = b'\x02\xD0\xA4' if testnet else b'\x02\xD0\xA8'
+    payload = prefix + pubkeyhash
+    hash = hash256(payload)
+    payload += hash[0:4]
+    return b58encode(payload)
+
+def ScriptAddress(script, testnet = True):
+    scripthash = hash160(script)
+    prefix = b'\x02\xD0\xA5' if testnet else b'\x02\xD0\xA9'
+    payload = prefix + scripthash
+    hash = hash256(payload)
+    payload += hash[0:4]
+    return b58encode(payload)
+
+def MoneyboxP2SHAddress(testnet = True):
+    return ScriptAddress(CScript([OP_CHECKREWARD]), testnet)

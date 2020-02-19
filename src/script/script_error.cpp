@@ -89,10 +89,44 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Using non-compressed keys in segwit";
         case SCRIPT_ERR_BAD_REWARD:
             return "Bad reward";
-        case SCRIPT_ERR_BAD_REWARD_SIGNATURE:
-            return "Bad reward signature";
-        case SCRIPT_ERR_BAD_REWARD_AMOUNT:
-            return "Bad reward amount";
+        case SCRIPT_ERR_BAD_REWARD_USER_ADDRESS:
+            return "Bad reward, incorrect user address";
+        case SCRIPT_ERR_BAD_REWARD_SCRIPT:
+            return "Bad reward, script";
+        case SCRIPT_ERR_BAD_REWARD_ZERO_PERCENT:
+            return "Bad reward, zero percent";
+        case SCRIPT_ERR_BAD_REWARD_CERT_EXPIRED:
+            return "Bad reward, cert expired";
+        case SCRIPT_ERR_BAD_REWARD_SPENT:
+            return "Bad reward, vin spent";
+        case SCRIPT_ERR_BAD_REWARD_ADDR_MISMATCH:
+            return "Bad reward, user address mismatch";
+        case SCRIPT_ERR_VAD_REWARD_NOT_MATURED:
+            return "Bad reward, not matured";
+        case SCRIPT_ERR_BAD_REWARD_MANY_MONEYBOX:
+            return "Bad reward, too many moneybox inputs";
+        case SCRIPT_ERR_BAD_REWARD_NO_USER_VINS:
+            return "Bad reward, no user inputs";
+        case SCRIPT_ERR_BAD_REWARD_MANY_MONEYBOX_OUTS:
+            return "Bad reward, too many moneybox outputs";
+        case SCRIPT_ERR_BAD_REWARD_MANY_USER_OUTS:
+            return "Bad reward, too many user outputs";
+        case SCRIPT_ERR_BAD_REWARD_MANY_BEN_OUTS:
+            return "Bad reward, too many beneficiary outputs";
+        case SCRIPT_ERR_BAD_REWARD_ROBBERY:
+            return "Bad reward. Everybody be cool, this is a robbery!!!";
+        case SCRIPT_ERR_BAD_REWARD_LESS_THAN_FEE:
+            return "Bad reward, less than transaction fee";
+        case SCRIPT_ERR_BAD_REWARD_BIG_BEN:
+            return "Bad reward, BIG BEN";
+        case SCRIPT_ERR_BAD_REWARD_NOSIG:
+            return "Bad reward, no signatures";
+        case SCRIPT_ERR_BAD_REWARD_WRONG_SIG:
+            return "Bad reward, wrong signatures count";
+        case SCRIPT_ERR_BAD_REWARD_INVALID_SIG:
+            return "Bad reward, invalid signature";
+        case SCRIPT_ERR_BAD_REWARD_LIMIT:
+            return "Bad reward, limit exceeded";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

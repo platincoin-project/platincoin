@@ -95,83 +95,97 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     }
 
     // Scan templates
-    const CScript& script1 = scriptPubKey;
-    BOOST_FOREACH(const PAIRTYPE(txnouttype, CScript)& tplate, mTemplates)
+    const CScript & script1 = scriptPubKey;
+    auto script1Begin = script1.begin();
+
+    // two pass
+    for (uint32_t i = 0; i < 2; ++i)
     {
-        const CScript& script2 = tplate.second;
-        vSolutionsRet.clear();
-
-        opcodetype opcode1, opcode2;
-        vector<unsigned char> vch1, vch2;
-
-        // Compare
-        CScript::const_iterator pc1 = script1.begin();
-        CScript::const_iterator pc2 = script2.begin();
-        while (true)
+        BOOST_FOREACH(const PAIRTYPE(txnouttype, CScript)& tplate, mTemplates)
         {
-            if (pc1 == script1.end() && pc2 == script2.end())
-            {
-                // Found a match
-                typeRet = tplate.first;
-                if (typeRet == TX_MULTISIG)
-                {
-                    // Additional checks for TX_MULTISIG:
-                    unsigned char m = vSolutionsRet.front()[0];
-                    unsigned char n = vSolutionsRet.back()[0];
-                    if (m < 1 || n < 1 || m > n || vSolutionsRet.size()-2 != n)
-                        return false;
-                }
-                return true;
-            }
-            if (!script1.GetOp(pc1, opcode1, vch1))
-                break;
-            if (!script2.GetOp(pc2, opcode2, vch2))
-                break;
+            const CScript& script2 = tplate.second;
+            vSolutionsRet.clear();
 
-            // Template matching opcodes:
-            if (opcode2 == OP_PUBKEYS)
+            opcodetype opcode1, opcode2;
+            vector<unsigned char> vch1, vch2;
+
+            // Compare
+            CScript::const_iterator pc1 = script1Begin;
+            CScript::const_iterator pc2 = script2.begin();
+            while (true)
             {
-                while (vch1.size() >= 33 && vch1.size() <= 65)
+                if (pc1 == script1.end() && pc2 == script2.end())
                 {
-                    vSolutionsRet.push_back(vch1);
-                    if (!script1.GetOp(pc1, opcode1, vch1))
-                        break;
+                    // Found a match
+                    typeRet = tplate.first;
+                    if (typeRet == TX_MULTISIG)
+                    {
+                        // Additional checks for TX_MULTISIG:
+                        unsigned char m = vSolutionsRet.front()[0];
+                        unsigned char n = vSolutionsRet.back()[0];
+                        if (m < 1 || n < 1 || m > n || vSolutionsRet.size()-2 != n)
+                            return false;
+                    }
+                    return true;
                 }
+                if (!script1.GetOp(pc1, opcode1, vch1))
+                    break;
                 if (!script2.GetOp(pc2, opcode2, vch2))
                     break;
-                // Normal situation is to fall through
-                // to other if/else statements
-            }
 
-            if (opcode2 == OP_PUBKEY)
-            {
-                if (vch1.size() < 33 || vch1.size() > 65)
-                    break;
-                vSolutionsRet.push_back(vch1);
-            }
-            else if (opcode2 == OP_PUBKEYHASH)
-            {
-                if (vch1.size() != sizeof(uint160))
-                    break;
-                vSolutionsRet.push_back(vch1);
-            }
-            else if (opcode2 == OP_SMALLINTEGER)
-            {   // Single-byte small integer pushed onto vSolutions
-                if (opcode1 == OP_0 ||
-                    (opcode1 >= OP_1 && opcode1 <= OP_16))
+                // Template matching opcodes:
+                if (opcode2 == OP_PUBKEYS)
                 {
-                    char n = (char)CScript::DecodeOP_N(opcode1);
-                    vSolutionsRet.push_back(valtype(1, n));
+                    while (vch1.size() >= 33 && vch1.size() <= 65)
+                    {
+                        vSolutionsRet.push_back(vch1);
+                        if (!script1.GetOp(pc1, opcode1, vch1))
+                            break;
+                    }
+                    if (!script2.GetOp(pc2, opcode2, vch2))
+                        break;
+                    // Normal situation is to fall through
+                    // to other if/else statements
                 }
-                else
+
+                if (opcode2 == OP_PUBKEY)
+                {
+                    if (vch1.size() < 33 || vch1.size() > 65)
+                        break;
+                    vSolutionsRet.push_back(vch1);
+                }
+                else if (opcode2 == OP_PUBKEYHASH)
+                {
+                    if (vch1.size() != sizeof(uint160))
+                        break;
+                    vSolutionsRet.push_back(vch1);
+                }
+                else if (opcode2 == OP_SMALLINTEGER)
+                {   // Single-byte small integer pushed onto vSolutions
+                    if (opcode1 == OP_0 ||
+                        (opcode1 >= OP_1 && opcode1 <= OP_16))
+                    {
+                        char n = (char)CScript::DecodeOP_N(opcode1);
+                        vSolutionsRet.push_back(valtype(1, n));
+                    }
+                    else
+                        break;
+                }
+                else if (opcode1 != opcode2 || vch1 != vch2)
+                {
+                    // Others must match exactly
                     break;
-            }
-            else if (opcode1 != opcode2 || vch1 != vch2)
-            {
-                // Others must match exactly
-                break;
+                }
             }
         }
+
+        if (i != 0)
+        {
+            break;
+        }
+
+        // second check, skip data from beginning of script1
+        script1Begin = script1.begin_skipLeadingData();
     }
 
     vSolutionsRet.clear();
@@ -244,6 +258,102 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
         if (!ExtractDestination(scriptPubKey, address))
            return false;
         addressRet.push_back(address);
+    }
+
+    return true;
+}
+
+bool isMintingTx(const CTransaction & tx)
+{
+    for (const CTxIn & in : tx.vin)
+    {
+        std::vector<plc::Certificate> certs;
+        if (isMintingScript(in.scriptSig, certs))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool isMintingScript(const CScript & scriptSig, std::vector<plc::Certificate> & certs)
+{
+    // script must be pushOnly
+    // format
+    // <signature><pubkey>...<signature><pubkey><txid><vout><txid><vout><OP_CHECKREWARD>
+
+    certs.clear();
+
+    if (!scriptSig.IsPushOnly())
+    {
+        return false;
+    }
+
+    // vector<opcode, data>
+    std::vector<std::pair<opcodetype, std::vector<unsigned char> > > ops;
+
+    {
+        // parse script
+        opcodetype op;
+        CScript::const_iterator it = scriptSig.begin();
+        std::vector<unsigned char> data;
+
+        while (scriptSig.GetOp(it, op, data))
+        {
+            ops.emplace_back(op, data);
+        }
+    }
+
+    if (ops.size() < 7)
+    {
+        return false;
+    }
+
+    // sheck signatures and pubkeys
+    size_t i = 0;
+    for (; i < ops.size()-5; i += 2)
+    {
+        if (!IsValidSignatureEncoding(ops[i].second))
+        {
+            return false;
+        }
+        if (!IsCompressedOrUncompressedPubKey(ops[i+1].second))
+        {
+            return false;
+        }
+    }
+
+    for (; i < ops.size()-1; i += 2)
+    {
+        plc::Certificate cert;
+
+        if (ops[i].second.size() != sizeof(uint256))
+        {
+            return false;
+        }
+
+        cert.txid = uint256(ops[i].second);
+
+        if (ops[i+1].second.size() > 0)
+        {
+            cert.vout = CScriptNum(ops[i+1].second, true).get<uint32_t>();
+        }
+        else
+        {
+            if (ops[i+1].first > OP_16)
+            {
+                return false;
+            }
+            cert.vout = CScript::DecodeOP_N(ops[i+1].first);
+        }
+
+        certs.emplace_back(cert);
+    }
+
+    if (ops[i].second.size() != 1 || ops[i].second[0] != OP_CHECKREWARD)
+    {
+        return false;
     }
 
     return true;

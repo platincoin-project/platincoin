@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
+#include "script/standard.h"
 
 std::string COutPoint::ToString() const
 {

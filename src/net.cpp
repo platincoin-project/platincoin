@@ -21,6 +21,7 @@
 #include "scheduler.h"
 #include "ui_interface.h"
 #include "utilstrencodings.h"
+#include "wallet/wallet.h"
 
 #ifdef WIN32
 #include <string.h>
@@ -143,11 +144,17 @@ static std::vector<CAddress> convertSeed6(const std::vector<SeedSpec6> &vSeedsIn
 // one by discovery.
 CAddress GetLocalAddress(const CNetAddr *paddrPeer, ServiceFlags nLocalServices)
 {
-    CAddress ret(CService(CNetAddr(),GetListenPort()), nLocalServices);
+    CKeyID keyHDWallet;
+#ifdef ENABLE_WALLET
+    if (pwalletMain)
+        keyHDWallet = pwalletMain->GetHDChain().masterKeyID;
+#endif
+
+    CAddress ret(CService(CNetAddr(),GetListenPort()), nLocalServices, keyHDWallet);
     CService addr;
     if (GetLocal(addr, paddrPeer))
     {
-        ret = CAddress(addr, nLocalServices);
+        ret = CAddress(addr, nLocalServices, keyHDWallet);
     }
     ret.nTime = GetAdjustedTime();
     return ret;
@@ -185,7 +192,7 @@ void AdvertiseLocal(CNode *pnode)
         }
         if (addrLocal.IsRoutable())
         {
-            LogPrint("net", "AdvertiseLocal: advertising address %s\n", addrLocal.ToString());
+            LogPrint("net", "AdvertiseLocal: advertising address %s to peer=%d\n", addrLocal.ToStringIpPortWallet(), pnode->id);
             FastRandomContext insecure_rand;
             pnode->PushAddress(addrLocal, insecure_rand);
         }

@@ -14,6 +14,7 @@
 #include "serialize.h"
 #include "uint256.h"
 #include "version.h"
+#include "pubkey.h"
 
 #include <stdint.h>
 #include <string>
@@ -282,9 +283,10 @@ class CAddress : public CService
 {
 public:
     CAddress();
-    explicit CAddress(CService ipIn, ServiceFlags nServicesIn);
+    explicit CAddress(CService ipIn, ServiceFlags nServicesIn, const CKeyID& keyHDWallet = CKeyID());
 
     void Init();
+    std::string ToStringIpPortWallet() const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -299,6 +301,8 @@ public:
         if ((s.GetType() & SER_DISK) ||
             (nVersion >= CADDR_TIME_VERSION && !(s.GetType() & SER_GETHASH)))
             READWRITE(nTime);
+        if ((s.GetType() & SER_NETWORK) && nVersion >= CADDR_HD_WALLET_KEY_VERSION)
+            READWRITE(keyHDWallet);
         uint64_t nServicesInt = nServices;
         READWRITE(nServicesInt);
         nServices = (ServiceFlags)nServicesInt;
@@ -311,6 +315,9 @@ public:
 
     // disk and network only
     unsigned int nTime;
+
+    // network only
+    CKeyID keyHDWallet;
 };
 
 /** getdata message type flags */

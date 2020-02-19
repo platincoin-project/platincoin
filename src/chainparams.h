@@ -85,9 +85,7 @@ public:
     int awardGranularity() const              { return consensus.awardGranularity; }
 
     /** mining to fixed address, default pub key */
-    const std::string & miningAddress() const { return consensus.miningAddress; }
-    /** reward depth, in blocks */
-    int rewardDepth() const { return consensus.rewardDepth; }
+    const CScript & moneyBoxAddress() const   { return consensus.moneyBoxAddress; }
 
 protected:
     CChainParams() {}

@@ -8,6 +8,7 @@
 
 #include "compressor.h" 
 #include "primitives/transaction.h"
+#include "plccertificate.h"
 #include "serialize.h"
 
 /** Undo information for a CTxIn
@@ -24,11 +25,23 @@ public:
     unsigned int nHeight; // if the outpoint was the last unspent: its height
     int nVersion;         // if the outpoint was the last unspent: its version
 
-    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0) {}
-    CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false, unsigned int nHeightIn = 0, int nVersionIn = 0) : txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn) { }
+    CTxInUndo()
+        : txout()
+        , fCoinBase(false)
+        , nHeight(0)
+        , nVersion(0)
+    {}
+
+    CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false, unsigned int nHeightIn = 0, int nVersionIn = 0)
+        : txout(txoutIn)
+        , fCoinBase(fCoinBaseIn)
+        , nHeight(nHeightIn)
+        , nVersion(nVersionIn)
+    {}
 
     template<typename Stream>
-    void Serialize(Stream &s) const {
+    void Serialize(Stream &s) const
+    {
         ::Serialize(s, VARINT(nHeight*2+(fCoinBase ? 1 : 0)));
         if (nHeight > 0)
             ::Serialize(s, VARINT(this->nVersion));
@@ -36,7 +49,8 @@ public:
     }
 
     template<typename Stream>
-    void Unserialize(Stream &s) {
+    void Unserialize(Stream &s)
+    {
         unsigned int nCode = 0;
         ::Unserialize(s, VARINT(nCode));
         nHeight = nCode / 2;
@@ -54,11 +68,71 @@ public:
     // undo information for all txins
     std::vector<CTxInUndo> vprevout;
 
-    ADD_SERIALIZE_METHODS;
+    // minting info for tx
+    bool                          m_isMinting;
+    std::vector<plc::Certificate> m_certs;
+    CAmount                       m_mintingAmount;
+
+    CTxUndo()
+        : m_isMinting(false)
+        , m_mintingAmount(0)
+    {}
+
+    ADD_SERIALIZE_METHODS
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(vprevout);
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (s.GetType() == SER_GETHASH)
+        {
+            READWRITE(vprevout);
+            return;
+        }
+
+        if (ser_action.ForRead())
+        {
+            READWRITE(vprevout);
+            if (vprevout.size() == 0)
+            {
+                // prevout size is 0 - flag for extended txundo
+
+                READWRITE(vprevout);
+                READWRITE(m_isMinting);
+                if (m_isMinting)
+                {
+                    READWRITE(m_mintingAmount);
+                    uint64_t size = 0;
+                    READWRITE(size);
+                    for (uint32_t i = 0; i < size; ++i)
+                    {
+                        plc::Certificate cert;
+                        READWRITE(cert.txid);
+                        READWRITE(cert.vout);
+                        m_certs.emplace_back(cert);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // 0 - flag for extended txundo
+            WriteCompactSize(s, 0);
+
+            READWRITE(vprevout);
+            READWRITE(m_isMinting);
+            if (m_isMinting)
+            {
+                READWRITE(m_mintingAmount);
+                uint64_t size = m_certs.size();
+                READWRITE(size);
+                for (size_t i = 0; i < m_certs.size(); ++i)
+                {
+                    plc::Certificate & cert = m_certs[i];
+                    READWRITE(cert.txid);
+                    READWRITE(cert.vout);
+                }
+            }
+        }
     }
 };
 
@@ -68,10 +142,11 @@ class CBlockUndo
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
 
-    ADD_SERIALIZE_METHODS;
+    ADD_SERIALIZE_METHODS
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
         READWRITE(vtxundo);
     }
 };

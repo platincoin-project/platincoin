@@ -133,16 +133,22 @@ CAddress::CAddress() : CService()
     Init();
 }
 
-CAddress::CAddress(CService ipIn, ServiceFlags nServicesIn) : CService(ipIn)
+CAddress::CAddress(CService ipIn, ServiceFlags nServicesIn, const CKeyID& keyHDWalletIn) : CService(ipIn)
 {
     Init();
     nServices = nServicesIn;
+    keyHDWallet = keyHDWalletIn;
 }
 
 void CAddress::Init()
 {
     nServices = NODE_NONE;
     nTime = 100000000;
+}
+
+std::string CAddress::ToStringIpPortWallet() const
+{
+    return ToStringIPPort() + "-" + keyHDWallet.ToString();
 }
 
 CInv::CInv()

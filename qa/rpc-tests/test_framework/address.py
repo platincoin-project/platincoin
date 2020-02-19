@@ -10,15 +10,14 @@
 #
 
 from .script import hash256, hash160, sha256, CScript, OP_0
-from .util import bytes_to_hex_str, hex_str_to_bytes
+from .util import bytes_to_hex_str, hex_str_to_bytes, is_hex_str
 
 chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 def byte_to_base58(b, version):
     result = ''
-    str = bytes_to_hex_str(b)
-    str = bytes_to_hex_str(chr(version).encode('latin-1')) + str
-    checksum = bytes_to_hex_str(hash256(hex_str_to_bytes(str)))
+    str = bytes_to_hex_str(version + b)
+    checksum = bytes_to_hex_str(hash256(version + b))
     str += checksum[:8]
     value = int('0x'+str,0)
     while value > 0:
@@ -33,12 +32,12 @@ def byte_to_base58(b, version):
 
 def keyhash_to_p2pkh(hash, main = False):
     assert (len(hash) == 20)
-    version = 0 if main else 111
+    version = hex_str_to_bytes('02d0a8') if main else hex_str_to_bytes('02d0a4')
     return byte_to_base58(hash, version)
 
 def scripthash_to_p2sh(hash, main = False):
     assert (len(hash) == 20)
-    version = 5 if main else 196
+    version = hex_str_to_bytes('02d0a9') if main else hex_str_to_bytes('02d0a5')
     return byte_to_base58(hash, version)
 
 def key_to_p2pkh(key, main = False):
@@ -60,15 +59,15 @@ def script_to_p2sh_p2wsh(script, main = False):
     return script_to_p2sh(p2shscript, main)
 
 def check_key(key):
-    if (type(key) is str):
-        key = hex_str_to_bytes(key) # Assuming this is hex string
+    if is_hex_str(key):
+        key = hex_str_to_bytes(key)
     if (type(key) is bytes and (len(key) == 33 or len(key) == 65)):
         return key
     assert(False)
 
 def check_script(script):
-    if (type(script) is str):
-        script = hex_str_to_bytes(script) # Assuming this is hex string
+    if is_hex_str(script):
+        script = hex_str_to_bytes(script)
     if (type(script) is bytes or type(script) is CScript):
         return script
     assert(False)

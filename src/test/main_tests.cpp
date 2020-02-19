@@ -35,28 +35,6 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
     BOOST_CHECK(GetBlockSubsidy(100001, consensusParams) == 0);
 }
 
-BOOST_AUTO_TEST_CASE(award_limit_test)
-{
-    const Consensus::Params & consensusParams = Params(CBaseChainParams::MAIN).GetConsensus();
-    CAmount nSum = 0;
-    int nHeight = 1; // skip genesis block
-    // countOfInitialAwardBlocks blocks = 100*COIN
-    for (; nHeight <= consensusParams.countOfInitialAwardBlocks; ++nHeight) {
-        CAmount nSubsidy = GetBlockAward(nHeight, consensusParams);
-        BOOST_CHECK(nSubsidy == 100 * COIN);
-        nSum += nSubsidy;
-        BOOST_CHECK(MoneyRange(nSubsidy));
-    }
-
-    BOOST_CHECK_EQUAL(nSum, 10000LL*COIN);
-
-    // next blocks - 0
-    BOOST_CHECK(GetBlockAward(101, consensusParams) == 0);
-    BOOST_CHECK(GetBlockAward(1001, consensusParams) == 0);
-    BOOST_CHECK(GetBlockAward(10001, consensusParams) == 0);
-    BOOST_CHECK(GetBlockAward(100001, consensusParams) == 0);
-}
-
 bool ReturnFalse() { return false; }
 bool ReturnTrue() { return true; }
 

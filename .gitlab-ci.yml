@@ -1,17 +1,38 @@
 stages:
   - build
+  - build2
   - test
   - deploy
+  - docker-prepare
+  - docker-deploy
+
+# The docker-prepare is intended to build base docker image
+#   this image contains required packages to be able to run platincoind
+#   It should be triggered if required changes of any base packages or distro
+#   See docker/plc-coin_base.Dockerfile
+job-debian-docker-prepare:
+  stage: docker-prepare
+  when: manual
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]  
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/docker/plc-coin_base.Dockerfile --destination $CI_REGISTRY/plc-blockchain/debian-9-platincoin-base:$CI_COMMIT_TAG
+  tags:
+    - kaniko
 
 job-debian-build:
   stage: build
-  script:
+  before_script:
+    - echo `find /tmp/test* -mtime +2 | xargs rm -rf`
     - rm -rf configure
+  script:
     - ./autogen.sh
     - ./configure --enable-static --disable-shared --with-incompatible-bdb
     - make -j 2
     - mkdir -p build/debian
-    - make install DESTDIR=$PWD/build/debian
+    - make install-strip DESTDIR=$PWD/build/debian
   cache:
     key: "debian-build-$CI_PIPELINE_ID"
     untracked: true
@@ -21,26 +42,8 @@ job-debian-build:
     paths:
       - build/debian/usr/local/bin/
 
-job-ubuntu-build:
-  stage: build
-  script:
-    - rm -rf configure
-    - ./autogen.sh
-    - ./configure --enable-static --disable-shared --with-incompatible-bdb --enable-glibc-back-compat
-    - make -j 1
-    - mkdir -p build/ubuntu
-    - make install DESTDIR=$PWD/build/ubuntu
-  cache:
-    key: "ubuntu-build-$CI_PIPELINE_ID"
-    untracked: true
-  tags:
-    - ubuntu
-  artifacts:
-    paths:
-      - build/ubuntu/usr/local/bin/
-
 job-win64-build:
-  stage: build
+  stage: build2
   script:
     - rm -rf configure
     - cd depends
@@ -51,15 +54,21 @@ job-win64-build:
     - make -j 2
     - mkdir -p build/win64
     - make install DESTDIR=$PWD/build/win64
+  dependencies:
+    - job-debian-build
   tags:
     - windows-w64
   artifacts:
     paths:
       - build/win64/bin/
+  only:
+    - master
+    - stable
+    - tags
   allow_failure: true
 
 job-win32-build:
-  stage: build
+  stage: build2
   script:
     - rm -rf configure
     - cd depends
@@ -70,15 +79,21 @@ job-win32-build:
     - make -j 2
     - mkdir -p build/win32
     - make install DESTDIR=$PWD/build/win32
+  dependencies:
+    - job-debian-build
   tags:
     - windows-w32
   artifacts:
     paths:
       - build/win32/bin/
+  only:
+    - master
+    - stable
+    - tags
   allow_failure: true
 
 job-macos-build:
-  stage: build
+  stage: build2
   script:
     - rm -rf $HOME/Cache/x86_64-apple-darwin11/qt
     - rm -rf configure
@@ -91,15 +106,21 @@ job-macos-build:
     - make appbundle
     - mkdir -p build/macos
     - mv Platincoin-Qt.app build/macos/
+  dependencies:
+    - job-debian-build
   tags:
     - macos
   artifacts:
     paths:
       - build/macos/
+  only:
+    - master
+    - stable
+    - tags
   allow_failure: true
 
 job-linux-arm32-build:
-  stage: build
+  stage: build2
   script:
     - rm -rf configure
     - cd depends
@@ -110,15 +131,21 @@ job-linux-arm32-build:
     - make -j 2
     - mkdir -p build/arm32
     - make install DESTDIR=$PWD/build/arm32
+  dependencies:
+    - job-debian-build
   tags:
     - linux-arm32
   artifacts:
     paths:
       - build/arm32/
+  only:
+    - master
+    - stable
+    - tags
   allow_failure: true
 
 job-linux-arm64-build:
-  stage: build
+  stage: build2
   script:
     - rm -rf configure
     - cd depends
@@ -129,21 +156,42 @@ job-linux-arm64-build:
     - make -j 2
     - mkdir -p build/arm64
     - make install DESTDIR=$PWD/build/arm64
+  dependencies:
+    - job-debian-build
   tags:
     - linux-arm64
   artifacts:
     paths:
       - build/arm64/
+  only:
+    - master
+    - stable
+    - tags
   allow_failure: true
 
 job-debian-test:
   stage: test
   script:
     - make check VERBOSE=1
-    - timeout -k 10 900 qa/pull-tester/rpc-tests.py -extended
-    - ps aux | grep $PWD | grep server | awk '{print $2}' | xargs -l -r kill -9
+  dependencies:
+    - job-debian-build
+  cache:
+    key: "debian-build-$CI_PIPELINE_ID"
+    untracked: true
+  tags:
+    - debian
+
+job-extended-test:
+  stage: test
+  when: manual
+  script:
+    - $PWD/qa/pull-tester/rpc-tests.py -extended
   after_script:
-    - ps aux | grep $PWD | grep server | awk '{print $2}' | xargs -l -r kill -9
+    - echo `ps aux | grep $PWD | grep python3 | awk '{print $2}' | xargs -l -r kill -9`
+    - echo `ps aux | grep platincoind | grep 'datadir=/tmp/test' | awk '{print $2}' | xargs -l -r kill -9`
+    - sleep 10
+    - mkdir -p qa/cache
+    - echo `find /tmp/test* -maxdepth 0 -print | tar -czf qa/cache/failed-tests.tar.gz --files-from - --remove-files`
   dependencies:
     - job-debian-build
   cache:
@@ -154,29 +202,26 @@ job-debian-test:
   artifacts:
     when: on_failure
     paths:
-      - qa/cache/*/regtest/debug.log
+      - qa/cache/failed-tests.tar.gz
   allow_failure: true
 
-job-ubuntu-test:
+job-extended-test-kill-and-clean:
   stage: test
+  when: manual
   script:
-    - make check VERBOSE=1
-    - timeout -k 10 900 qa/pull-tester/rpc-tests.py -extended
-    - ps aux | grep $PWD | grep server | awk '{print $2}' | xargs -l -r kill -9
-  after_script:
-    - ps aux | grep $PWD | grep server | awk '{print $2}' | xargs -l -r kill -9
+    - echo $PWD
+    - echo `ps aux | grep $PWD | grep python3 | awk '{print $2}' | xargs -l -r kill -9`
+    - echo `ps aux | grep platincoind | grep 'datadir=/tmp/test' | awk '{print $2}' | xargs -l -r kill -9`
+    - sleep 10
+    - mkdir -p qa/cache
+    - echo `find /tmp/test* -maxdepth 0 -print | tar -czf qa/cache/failed-tests.tar.gz --files-from - --remove-files`
   dependencies:
-    - job-ubuntu-build
-  cache:
-    key: "ubuntu-build-$CI_PIPELINE_ID"
-    untracked: true
+    - job-debian-build
   tags:
-    - ubuntu
+    - debian
   artifacts:
-    when: on_failure
     paths:
-      - qa/cache/*/regtest/debug.log
-  allow_failure: true
+      - qa/cache/failed-tests.tar.gz
 
 job-staging-deploy:
   stage: deploy
@@ -186,21 +231,43 @@ job-staging-deploy:
     - ln -s -f /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip /var/www/html/packages/staging/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG-latest.zip
   tags:
     - debian
+  only:
+    - master
+    - stable
   except:
     - tags
-
+      
 job-release-deploy:
   stage: deploy
   script:
     - mkdir -p /var/www/html/packages/releases/$CI_PROJECT_NAME
     - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-debian-x64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/debian/*
-    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-ubuntu-x64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/ubuntu/*
-    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-macos-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/macos/*
-    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-win32-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/win32/*
-    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-win64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/win64/*
-    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-arm32-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/arm32/*
-    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-arm64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/arm64/*
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-macos-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/macos/* || true
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-win32-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/win32/* || true
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-win64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/win64/* || true
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-arm32-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/arm32/* || true
+    - zip -r /var/www/html/packages/releases/$CI_PROJECT_NAME/$CI_PROJECT_NAME-arm64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.zip build/arm64/* || true
+    - mkdir -p build/debian/DEBIAN
+    - cp debian/control build/debian/DEBIAN/
+    - 'sed -i "10cVersion: $CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID" build/debian/DEBIAN/control'
+    - fakeroot dpkg-deb --build build/debian build/$CI_PROJECT_NAME-debian-x64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.deb
+    - cp build/$CI_PROJECT_NAME-debian-x64-$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID.deb /var/www/html/packages/releases/$CI_PROJECT_NAME/
   tags:
     - debian
+  only:
+    - tags
+
+job-debian-docker-deploy:
+  stage: docker-deploy
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]  
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --build-arg=PLATINCOIN_VERSION=$CI_COMMIT_TAG --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/docker/plc-coin.Dockerfile --destination $CI_REGISTRY/plc-blockchain/debian-9-platincoin:$CI_COMMIT_REF_SLUG-$CI_PIPELINE_ID
+  dependencies:
+    - job-debian-build
+  tags:
+    - kaniko
   only:
     - tags

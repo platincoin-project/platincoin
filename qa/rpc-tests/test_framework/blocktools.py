@@ -5,7 +5,9 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from .mininode import *
-from .script import CScript, OP_TRUE, OP_CHECKSIG, OP_RETURN
+from .script import CScript, OP_TRUE, OP_CHECKSIG, OP_RETURN, OP_HASH160, OP_EQUAL, GetP2SHMoneyboxScript
+from .util import *
+import binascii
 
 # Create a block (with regtest difficulty)
 def create_block(hashprev, coinbase, nTime=None):
@@ -60,49 +62,52 @@ def serialize_script_num(value):
         r[-1] |= 0x80
     return r
 
-def get_subsidy(height):
-    if height < 11:
-        return 56000000*COIN
-    if height < 111:
-        return 100*COIN
-    return 0
-    
 
-# Create a coinbase transaction, assuming no miner fees.
+def get_subsidy(height, minerfees):
+    if height <= 100:
+        return 6000000*COIN
+    return max(500000, int(minerfees / 2))  # int(0.005*COIN)
+
+
+def get_plc_award(height, refill_moneybox_amount, AWARD_UNIT = 10 * COIN):
+    if height <= 100:
+        return [AWARD_UNIT] * 10
+    outputs = [AWARD_UNIT] * (refill_moneybox_amount // AWARD_UNIT)
+    if (refill_moneybox_amount % AWARD_UNIT) > 0:
+        outputs.append(refill_moneybox_amount % AWARD_UNIT)
+    assert_greater_than_or_equal(10, len(outputs))
+    return outputs
+
+
+# Create a coinbase transaction.
 # If pubkey is passed in, the coinbase output will be a P2PK output;
 # otherwise an anyone-can-spend output.
-def create_coinbase(height, pubkey = None):
+def create_coinbase(height, pubkey = None, minerfees = 0, refill_moneybox_amount = 0, granularity = 10 * COIN,
+                    moneyboxscript = GetP2SHMoneyboxScript()):
     coinbase = CTransaction()
     coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff), 
                 ser_string(serialize_script_num(height)), 0xffffffff))
+    coinbase.vout = []
 
-    coinbaseaward = CTxOut()
-    coinbaseaward.nValue = get_subsidy(height)
-    # if (pubkey != None):
-    #     coinbaseaward.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
-    # else:
-    coinbaseaward.scriptPubKey = CScript([OP_TRUE])
-
-    # # TODO specified key for award txs
-    # if (pubkey != None):
-    #     coinbaseaward.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
-    # else:
-    #     coinbaseaward.scriptPubKey = CScript([OP_TRUE])
-
-    coinbasefee = CTxOut()
-    coinbasefee.nValue = 500000
-    # if (pubkey != None):
-    #     coinbasefee.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
-    # else:
-    coinbasefee.scriptPubKey = CScript([OP_TRUE])
-
-    if (coinbaseaward.nValue == 0):
-        coinbase.vout = [ coinbasefee ]
+    subsidy = CTxOut()
+    subsidy.nValue = get_subsidy(height, minerfees)
+    if (pubkey != None):
+        subsidy.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
     else:
-        coinbase.vout = [ coinbaseaward, coinbasefee ]
+        subsidy.scriptPubKey = CScript([OP_TRUE])
+
+    if (subsidy.nValue > 0):
+        coinbase.vout.append(subsidy)
+
+    for elem in get_plc_award(height, refill_moneybox_amount, AWARD_UNIT = granularity):
+        plcaward = CTxOut()
+        plcaward.nValue = elem
+        plcaward.scriptPubKey = moneyboxscript
+        coinbase.vout.append(plcaward)
 
     coinbase.calc_sha256()
     return coinbase
+
 
 # Create a transaction.
 # If the scriptPubKey is not specified, make it anyone-can-spend.

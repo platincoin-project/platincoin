@@ -28,9 +28,9 @@ import sys
 import subprocess
 import tempfile
 import re
-
-sys.path.append("qa/pull-tester/")
 from tests_config import *
+sys.path.append(os.path.join(sys.path[0], '../rpc-tests'))
+from minting_testcases import get_minting_testcases
 
 BOLD = ("","")
 if os.name == 'posix':
@@ -101,30 +101,88 @@ if ENABLE_ZMQ:
 testScripts = [
     # longest test should go first, to favor running tests in parallel
     'wallet-hd.py',
-   # vv Tests less than 60s vv
-   'importmulti.py',
-   'abandonconflict.py',
-   'rawtransactions.py',
-   'reindex.py',
-   # vv Tests less than 30s vv
-   'httpbasics.py',
-   'multi_rpc.py',
-   'proxy_test.py',
-   'nodehandling.py',
-   'decodescript.py',
-   'p2p-mempool.py',
-   'prioritise_transaction.py',
-   'p2p-versionbits-warning.py',
-   'preciousblock.py',
-   'importprunedfunds.py',
-   'import-rescan.py',
-   'rpcnamedargs.py',
-   'p2p-leaktests.py'
+    'walletbackup.py',
+    'sendheaders.py',
+    # vv Tests less than 5m vv
+    'p2p-fullblocktest.py',
+    'fundrawtransaction.py',
+    'p2p-compactblocks.py',
+    'segwit.py',
+    # vv Tests less than 2m vv
+    'wallet.py',
+    'wallet-accounts.py',
+    'p2p-segwit.py',
+    'wallet-dump.py',
+    'listtransactions.py',
+    # vv Tests less than 60s vv
+    'zapwallettxes.py',
+    'importmulti.py',
+    'mempool_limit.py',
+    'merkle_blocks.py',
+    'receivedby.py',
+    'abandonconflict.py',
+    'bip68-112-113-p2p.py',
+    'rawtransactions.py',
+    'reindex.py',
+    # vv Tests less than 30s vv
+    'mempool_resurrect_test.py',
+    'txn_doublespend.py',
+    'txn_doublespend.py --mineblock',
+    'txn_clone.py',
+    'txn_clone.py --mineblock',
+    'getchaintips.py',
+    'rest.py',
+    'mempool_spendcoinbase.py',
+    'mempool_reorg.py',
+    'httpbasics.py',
+    'multi_rpc.py',
+    'proxy_test.py',
+    'signrawtransactions.py',
+    'nodehandling.py',
+    'decodescript.py',
+    'blockchain.py',
+    'disablewallet.py',
+    'keypool.py',
+    'p2p-mempool.py',
+    'prioritise_transaction.py',
+    'invalidblockrequest.py',
+    'invalidtxrequest.py',
+    'p2p-versionbits-warning.py',
+    'preciousblock.py',
+    'importprunedfunds.py',
+    'signmessages.py',
+    'nulldummy.py',
+    'import-rescan.py',
+    'bumpfee.py',
+    'rpcnamedargs.py',
+    'listsinceblock.py',
+    'p2p-leaktests.py',
+    'test_script_address2.py',
+    'minting.py',
+    'minting.py --mintalltestcases',
 ]
 if ENABLE_ZMQ:
     testScripts.append('zmq_test.py')
 
 testScriptsExt = [
+    # vv Tests less than 20m vv
+    'smartfees.py',
+    # vv Tests less than 5m vv
+    'maxuploadtarget.py',
+    'mempool_packages.py',
+    # vv Tests less than 2m vv
+    'getblocktemplate_longpoll.py',
+    'p2p-timeouts.py',
+    # vv Tests less than 60s vv
+    'p2p-feefilter.py',
+    'rpcbind_test.py',
+    # vv Tests less than 30s vv
+    'getblocktemplate_proposals.py',
+    'txn_doublespend.py',
+    'forknotify.py',
+    'invalidateblock.py',
+    'maxblocksinflight.py',
+    'replace-by-fee.py',
 ]
 
 
@@ -137,12 +195,24 @@ def runtests():
     else:
         for t in testScripts + testScriptsExt:
             if t in opts or re.sub(".py$", "", t) in opts:
-                test_list.append(t)
+                # work-around for --mintalltestcases option:
+                if t == 'minting.py' and '--mintalltestcases' in passon_args:
+                    test_list.append(t + ' --mintalltestcases')
+                else:
+                    test_list.append(t)
 
     if print_help:
         # Only print help of the first script and exit
         subprocess.check_call((RPC_TESTS_DIR + test_list[0]).split() + ['-h'])
         sys.exit(0)
+
+    # work-around for --mintalltestcases option:
+    if 'minting.py --mintalltestcases' in test_list:
+        test_list.remove('minting.py --mintalltestcases')
+        for t in get_minting_testcases():
+            test_list.append('minting.py --runtestcase=' + t)
+    if '--mintalltestcases' in passon_args:
+        passon_args.remove('--mintalltestcases')
 
     coverage = None
 

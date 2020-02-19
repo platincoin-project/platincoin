@@ -15,6 +15,43 @@ import ctypes
 import ctypes.util
 import hashlib
 import sys
+import struct
+import ecdsa
+from test_framework.util import bytes_to_hex_str, reverse
+
+
+SECP256K1_MODULE = None
+SECP256K1_AVAILABLE = False
+CRYPTOGRAPHY_AVAILABLE = False
+GMPY2_MODULE = False
+if not SECP256K1_MODULE:  # pragma: no branch
+    try:
+        import secp256k1
+        SECP256K1_MODULE = "secp256k1"
+        SECP256K1_AVAILABLE = True
+    except ImportError:
+        try:
+            import cryptography
+            SECP256K1_MODULE = "cryptography"
+            CRYPTOGRAPHY_AVAILABLE = True
+        except ImportError:
+            SECP256K1_MODULE = "ecdsa"
+
+    try:  # pragma: no branch
+        from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives.asymmetric.utils \
+            import decode_dss_signature, encode_dss_signature
+        from cryptography.exceptions import InvalidSignature
+        CRYPTOGRAPHY_AVAILABLE = True
+    except ImportError:
+        CRYPTOGRAPHY_AVAILABLE = False
+        print("Cryptography not available")
+
+print("Using SECP256K1 module: {}".format(SECP256K1_MODULE))
+
+
 
 ssl = ctypes.cdll.LoadLibrary(ctypes.util.find_library ('ssl') or 'libeay32')
 
@@ -71,6 +108,16 @@ ssl.EC_POINT_free.argtypes = [ctypes.c_void_p]
 
 ssl.EC_POINT_mul.restype = ctypes.c_int
 ssl.EC_POINT_mul.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+
+ssl.EC_KEY_get_conv_form.restype = ctypes.c_int
+ssl.EC_KEY_get_conv_form.argtypes = [ctypes.c_void_p]
+
+ssl.EC_KEY_get0_private_key.restype = ctypes.c_void_p
+ssl.EC_KEY_get0_private_key.argtypes = [ctypes.c_void_p]
+
+ssl.BN_bn2bin.restype = ctypes.c_int
+ssl.BN_bn2bin.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+
 
 # this specifies the curve used with ECDSA.
 NID_secp256k1 = 714 # from openssl/obj_mac.h
@@ -193,6 +240,19 @@ class CECKey(object):
             form = self.POINT_CONVERSION_UNCOMPRESSED
         ssl.EC_KEY_set_conv_form(self.k, form)
 
+    def is_compressed(self):
+        form = ssl.EC_KEY_get_conv_form(self.k)
+        assert(form == self.POINT_CONVERSION_COMPRESSED or form == self.POINT_CONVERSION_UNCOMPRESSED)
+        return True if form == self.POINT_CONVERSION_COMPRESSED else False
+
+    def get_secret(self):
+        bn = ssl.EC_KEY_get0_private_key(self.k)
+        mb = ctypes.create_string_buffer(32)
+        len = ssl.BN_bn2bin(bn, mb)
+        assert (len >= 0 and len <= 32)
+        buffer = b'\0' * (32 - len) + mb.raw
+        return buffer[0:32]
+
 
 class CPubKey(bytes):
     """An encapsulated public key
@@ -234,3 +294,89 @@ class CPubKey(bytes):
         else:
             return '%s(b%s)' % (self.__class__.__name__, super(CPubKey, self).__repr__())
 
+
+
+def verify_secp256k1_module_found():
+    if SECP256K1_MODULE != "secp256k1":
+        raise AssertionError("secp256k1 module is not found. Type 'pip3 install secp256k1'")
+
+
+def _is_canonical(sig):
+    sig = bytearray(sig)
+    return (not (int(sig[0]) & 0x80) and
+            not (sig[0] == 0 and not (int(sig[1]) & 0x80)) and
+            not (int(sig[32]) & 0x80) and
+            not (sig[32] == 0 and not (int(sig[33]) & 0x80)))
+
+
+def sign_compact(digest, priv_key):
+    """ Sign a digest with a priv_key key
+        :param priv_key: Private key in
+    """
+    if not isinstance(priv_key, (bytes, bytearray)):
+        raise AssertionError('priv_key must be in binary format')
+    if len(priv_key) != 32:
+        raise AssertionError('priv_key must be 32 bytes long ({} provided)'.format(len(priv_key)))
+
+    verify_secp256k1_module_found()
+
+    p = bytes(priv_key)
+    ndata = secp256k1.ffi.new("const int *ndata")
+    ndata[0] = 0
+    while True:
+        ndata[0] += 1
+        privkey = secp256k1.PrivateKey(p, raw=True)
+        sig = secp256k1.ffi.new('secp256k1_ecdsa_recoverable_signature *')
+        signed = secp256k1.lib.secp256k1_ecdsa_sign_recoverable(
+            privkey.ctx,
+            sig,
+            digest,
+            privkey.private_key,
+            secp256k1.ffi.NULL,
+            ndata
+        )
+        if not signed == 1:
+            raise AssertionError()
+        signature, i = privkey.ecdsa_recoverable_serialize(sig)
+        if _is_canonical(signature):
+            i += 4  # compressed
+            i += 27  # compact
+            break
+
+    # pack signature
+    sigstr = struct.pack("<B", i)
+    sigstr += signature
+    return sigstr
+
+
+def recover_public_key(digest, signature):
+    """ Recover the public key from the the signature
+    """
+    verify_secp256k1_module_found()
+
+    i = bytearray(signature)[0] - 4 - 27  # recover parameter only
+    signature = signature[1:]
+    # See http: //www.secg.org/download/aid-780/sec1-v2.pdf section 4.1.6 primarily
+    curve = ecdsa.SECP256k1.curve
+    G = ecdsa.SECP256k1.generator
+    order = ecdsa.SECP256k1.order
+    yp = (i % 2)
+    r, s = ecdsa.util.sigdecode_string(signature, order)
+    # 1.1
+    x = r + (i // 2) * order
+    # 1.3. This actually calculates for either effectively 02||X or 03||X depending on 'k' instead of always for 02||X as specified.
+    # This substitutes for the lack of reversing R later on. -R actually is defined to be just flipping the y-coordinate in the elliptic curve.
+    alpha = ((x * x * x) + (curve.a() * x) + curve.b()) % curve.p()
+    beta = ecdsa.numbertheory.square_root_mod_prime(alpha, curve.p())
+    y = beta if (beta - yp) % 2 == 0 else curve.p() - beta
+    # 1.4 Constructor of Point is supposed to check if nR is at infinity.
+    R = ecdsa.ellipticcurve.Point(curve, x, y, order)
+    # 1.5 Compute e
+    e = ecdsa.util.string_to_number(digest)
+    # 1.6 Compute Q = r^-1(sR - eG)
+    Q = ecdsa.numbertheory.inverse_mod(r, order) * (s * R + (-e % order) * G)
+
+    if not ecdsa.VerifyingKey.from_public_point(Q, curve=ecdsa.SECP256k1).verify_digest(signature, digest, sigdecode=ecdsa.util.sigdecode_string):
+        return None
+    return ecdsa.VerifyingKey.from_public_point(Q, curve=ecdsa.SECP256k1)
+    # TODO: convert to CPubKey class

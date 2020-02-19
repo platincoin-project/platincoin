@@ -7,6 +7,7 @@
 #define BITCOIN_CONSENSUS_PARAMS_H
 
 #include "uint256.h"
+#include "script/script.h"
 #include <map>
 #include <string>
 
@@ -72,10 +73,10 @@ struct Params {
     int awardGranularity;
 
     /** default address for mining */
-    std::string miningAddress;
-    /** reward depth, in blocks */
-    int rewardDepth;
+    CScript     moneyBoxAddress;
+    int64_t     moneyBoxAmount;
 };
+
 } // namespace Consensus
 
 #endif // BITCOIN_CONSENSUS_PARAMS_H
